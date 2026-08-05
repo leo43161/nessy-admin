@@ -6,6 +6,15 @@ import type { LoginPayload, LoginResponse } from "@/types";
 /** Roles.id_Roles del admin — espeja ROL_ADMIN de config/config.php en la API */
 export const ROL_ADMIN = 1;
 
+/** Lo que la API mete en `data` del JWT y devuelve en /auth/login y /auth/yo */
+interface DatosToken {
+  user_id: number;
+  usuario: string;
+  rol_id: number;
+  rol: string;
+  id_Cobrador: number | null;
+}
+
 /** JWT de utilería para el mock (la API real firma el suyo) */
 function buildMockJwt(sub: number, name: string, rolId: number): string {
   const b64 = (obj: object) => btoa(JSON.stringify(obj)).replace(/=+$/, "");
@@ -56,11 +65,26 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
       500,
     );
   }
-  const { data } = await api.post<LoginResponse>("/auth/login", payload);
-  if (data.cuenta.rolId !== ROL_ADMIN) {
+  // La API devuelve { token, expira_el, usuario: {...} } con las claves del
+  // token, no el { token, cuenta, cobrador } que arma el front.
+  const { data } = await api.post<{ token: string; usuario: DatosToken }>("/auth/login", payload);
+
+  if (data.usuario.rol_id !== ROL_ADMIN) {
     throw new Error("Esta cuenta no tiene acceso al panel de administración.");
   }
-  return data;
+
+  return {
+    token: data.token,
+    cuenta: {
+      id: data.usuario.user_id,
+      nombreDeUsuario: data.usuario.usuario,
+      rol: data.usuario.rol,
+      rolId: data.usuario.rol_id,
+    },
+    // El admin nunca está ligado a un cobrador (id_Cobrador viene null), así
+    // que en este panel no hace falta ir a buscar la persona.
+    cobrador: null,
+  };
 }
 
 /** Valida el token contra la API (mock: chequeo local de expiración) */
@@ -69,7 +93,9 @@ export async function validateToken(token: string): Promise<boolean> {
     return delay(!isTokenExpired(token), 100);
   }
   try {
-    await api.post("/auth/validate", { token });
+    // No existe /auth/validate: la sesión se comprueba pidiendo /auth/yo, que
+    // el middleware ya protege con el token del header.
+    await api.get("/auth/yo");
     return true;
   } catch {
     return false;
