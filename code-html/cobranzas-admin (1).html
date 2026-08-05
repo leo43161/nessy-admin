@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FinAdmin — Panel de Cobranzas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1A6FE8;
+    --primary-light: #4B93F5;
+    --primary-dark: #0F4DB5;
+    --sky: #38BDF8;
+    --sky-light: #BAE6FD;
+    --sky-pale: #F0F9FF;
+    --accent: #0EA5E9;
+    --surface: #FFFFFF;
+    --surface-2: #F8FAFF;
+    --surface-3: #EEF4FF;
+    --border: #DBEAFE;
+    --border-strong: #BFDBFE;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #94A3B8;
+    --text-on-primary: #FFFFFF;
+    --green: #10B981;
+    --green-bg: #ECFDF5;
+    --green-border: #A7F3D0;
+    --yellow: #F59E0B;
+    --yellow-bg: #FFFBEB;
+    --yellow-border: #FDE68A;
+    --red: #EF4444;
+    --red-bg: #FEF2F2;
+    --red-border: #FECACA;
+    --orange: #F97316;
+    --orange-bg: #FFF7ED;
+    --orange-border: #FED7AA;
+    --gray: #64748B;
+    --gray-bg: #F1F5F9;
+    --gray-border: #CBD5E1;
+    --shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md: 0 4px 16px rgba(26,111,232,0.08), 0 2px 6px rgba(15,23,42,0.05);
+    --shadow-lg: 0 10px 40px rgba(26,111,232,0.12), 0 4px 12px rgba(15,23,42,0.06);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font-mono: 'Space Mono', monospace;
+    --font-main: 'DM Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 15px; -webkit-text-size-adjust: 100%; }
+  body { font-family: var(--font-main); background: var(--surface-2); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1.5px solid var(--border); box-shadow: var(--shadow-md); }
+  .topbar-main { display: flex; align-items: center; gap: 10px; padding: 12px 16px 8px; }
+  .app-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--primary), var(--sky)); border-radius: 9px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,111,232,0.3); }
+  .logo-icon svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .app-name { font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); letter-spacing: -0.02em; }
+  .app-name span { color: var(--sky); }
+  .topbar-date-section { padding: 0 16px 12px; }
+  .date-toggle-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .date-mode-btn { padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border-strong); background: transparent; color: var(--text-secondary); font-family: var(--font-main); font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.18s; }
+  .date-mode-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+  .date-inputs { display: flex; gap: 8px; align-items: center; }
+  .date-inputs input { flex: 1; padding: 7px 11px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-strong); background: var(--surface-3); color: var(--text-primary); font-family: var(--font-main); font-size: 0.82rem; font-weight: 500; outline: none; transition: border-color 0.18s; }
+  .date-inputs input:focus { border-color: var(--primary); }
+  .date-separator { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+  .range-only { display: none; }
+  .tab-nav { display: flex; background: var(--surface); border-bottom: 2px solid var(--border); padding: 0 8px; gap: 2px; overflow-x: auto; }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn { flex: 1; min-width: 80px; padding: 10px 8px 9px; border: none; background: transparent; color: var(--text-muted); font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; border-bottom: 2.5px solid transparent; margin-bottom: -2px; transition: all 0.18s; white-space: nowrap; }
+  .tab-btn .tab-icon { font-size: 1.1rem; }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .main-content { padding: 0 0 90px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 10px; }
+  .section-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+  .section-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+  .badge-count { background: var(--primary); color: white; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-family: var(--font-mono); }
+  .kanban-scroll { display: flex; gap: 12px; padding: 4px 16px 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .kanban-scroll::-webkit-scrollbar { height: 4px; }
+  .kanban-scroll::-webkit-scrollbar-track { background: var(--surface-3); border-radius: 2px; }
+  .kanban-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+  .kanban-col { min-width: 265px; max-width: 285px; background: var(--surface); border-radius: var(--radius-lg); border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); scroll-snap-align: start; flex-shrink: 0; }
+  .col-header { padding: 14px 14px 10px; border-bottom: 1.5px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--surface-3); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .col-avatar { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: white; flex-shrink: 0; }
+  .col-info { flex: 1; min-width: 0; }
+  .col-name { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+  .col-total { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; color: var(--primary-dark); margin-top: 1px; }
+  .col-stats { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+  .col-stat { font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 5px; }
+  .col-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .pay-card { border-radius: var(--radius-md); border: 1.5px solid; padding: 11px 12px; position: relative; transition: transform 0.15s, box-shadow 0.15s; cursor: default; }
+  .pay-card:active { transform: scale(0.98); }
+  .pay-card.status-paid { background: var(--green-bg); border-color: var(--green-border); }
+  .pay-card.status-pending { background: var(--yellow-bg); border-color: var(--yellow-border); }
+  .pay-card.status-overdue { background: var(--red-bg); border-color: var(--red-border); }
+  .pay-card.status-unreachable { background: var(--orange-bg); border-color: var(--orange-border); }
+  .pay-card.status-refinanced { background: var(--gray-bg); border-color: var(--gray-border); }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .card-client { font-size: 0.84rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+  .card-ref { font-size: 0.66rem; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .status-paid .status-dot { background: var(--green); }
+  .status-pending .status-dot { background: var(--yellow); }
+  .status-overdue .status-dot { background: var(--red); }
+  .status-unreachable .status-dot { background: var(--orange); }
+  .status-refinanced .status-dot { background: var(--gray); }
+  .card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .card-amount { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+  .card-actions { display: flex; gap: 5px; align-items: center; }
+  .wa-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #25D366; border-radius: 7px; border: none; cursor: pointer; text-decoration: none; flex-shrink: 0; transition: transform 0.15s, opacity 0.15s; }
+  .wa-btn:active { transform: scale(0.9); opacity: 0.85; }
+  .wa-btn svg { width: 15px; height: 15px; fill: white; }
+  .wa-btn.sm { width: 24px; height: 24px; border-radius: 5px; }
+  .wa-btn.sm svg { width: 12px; height: 12px; }
+  .special-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--primary-dark); color: white; letter-spacing: 0.02em; white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.65rem; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+  .chip-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .chip-yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .chip-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .chip-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .chip-blue { background: var(--surface-3); color: var(--primary); border: 1px solid var(--border-strong); }
+  .chip-gray { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-border); }
+  .scroll-hint { display: flex; align-items: center; gap: 5px; padding: 2px 16px 6px; font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+  .finance-section { padding: 0 16px; }
+  .global-balance { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--sky) 100%); border-radius: var(--radius-xl); padding: 20px 18px; margin-bottom: 16px; position: relative; overflow: hidden; }
+  .global-balance::before { content: ''; position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+  .global-balance::after { content: ''; position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.04); border-radius: 50%; }
+  .balance-label { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.65); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .balance-total { font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700; color: white; line-height: 1; margin-bottom: 16px; }
+  .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .balance-item { background: rgba(255,255,255,0.1); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .bi-label { font-size: 0.63rem; font-weight: 600; color: rgba(255,255,255,0.6); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .bi-amount { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: white; }
+  .bi-amount.negative { color: #FCA5A5; }
+  .bi-amount.positive { color: #86EFAC; }
+  .bi-amount.warn { color: #FDE68A; }
+  .ledger-card { background: var(--surface); border-radius: var(--radius-lg); border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); margin-bottom: 12px; overflow: hidden; }
+  .ledger-header { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-bottom: 1.5px solid var(--border); background: var(--surface-3); }
+  .ledger-avatar { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; font-weight: 700; color: white; flex-shrink: 0; }
+  .ledger-info { flex: 1; }
+  .ledger-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+  .ledger-deliver { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); }
+  .deliver-label { font-size: 0.63rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ledger-rows { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .ledger-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: var(--radius-sm); font-size: 0.78rem; gap: 4px; }
+  .ledger-row.own { background: var(--green-bg); }
+  .ledger-row.cross { background: var(--sky-pale); }
+  .ledger-row.overdue { background: var(--red-bg); }
+  .ledger-row.unreachable { background: var(--orange-bg); }
+  .lr-client { font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lr-tag { font-size: 0.6rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; }
+  .tag-own { background: var(--green-border); color: #065F46; }
+  .tag-cross { background: var(--sky-light); color: #0369A1; }
+  .tag-overdue { background: var(--red-border); color: #991B1B; }
+  .tag-unreachable { background: var(--orange-border); color: #9A3412; }
+  .lr-amount { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
+  .color-green { color: var(--green); }
+  .color-red { color: var(--red); }
+  .color-orange { color: var(--orange); }
+  .color-blue { color: var(--primary); }
+  .analytics-section { padding: 0 16px; }
+  .stat-card { background: var(--surface); border-radius: var(--radius-lg); border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); padding: 16px; margin-bottom: 12px; }
+  .stat-card-title { font-size: 0.73rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .stat-card-title::before { content: ''; width: 3px; height: 14px; background: var(--primary); border-radius: 2px; flex-shrink: 0; }
+  .perf-row { margin-bottom: 16px; }
+  .perf-row:last-child { margin-bottom: 0; }
+  .perf-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .perf-name { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; font-weight: 700; color: var(--text-primary); }
+  .perf-mini-avatar { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: white; flex-shrink: 0; }
+  .perf-pct { font-family: var(--font-mono); font-size: 0.88rem; font-weight: 700; color: var(--primary); }
+  .progress-bar-track { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; margin-bottom: 5px; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--primary), var(--sky)); }
+  .perf-breakdown { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pb-item { display: flex; align-items: center; gap: 4px; font-size: 0.67rem; color: var(--text-secondary); font-weight: 500; }
+  .pb-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-summary { display: flex; flex-wrap: wrap; gap: 7px; }
+  .ss-pill { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1.5px solid; flex: 1; min-width: 90px; }
+  .ss-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ss-info { flex: 1; }
+  .ss-label { font-size: 0.63rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .ss-count { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; line-height: 1.1; }
+  .cross-table { width: 100%; border-collapse: collapse; }
+  .cross-table th { font-size: 0.63rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px; text-align: left; border-bottom: 1.5px solid var(--border); }
+  .cross-table td { padding: 8px 8px; font-size: 0.76rem; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+  .cross-table tr:last-child td { border-bottom: none; }
+  .cross-table td.mono { font-family: var(--font-mono); font-weight: 700; color: var(--primary); }
+  .no-data { text-align: center; padding: 30px 20px; color: var(--text-muted); }
+  .no-data-icon { font-size: 2.2rem; margin-bottom: 8px; }
+  .no-data-text { font-size: 0.82rem; font-weight: 500; }
+  .today-badge-pill { background: var(--surface-3); border: 1.5px solid var(--border-strong); border-radius: 20px; padding: 3px 10px; font-size: 0.72rem; color: var(--primary-dark); font-weight: 600; }
+  @media (min-width: 600px) {
+    .kanban-col { min-width: 300px; }
+    .balance-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-main">
+    <div class="app-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="app-name">Fin<span>Admin</span></div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="today-badge-pill" id="todayBadge"></div>
+  </div>
+  <div class="topbar-date-section">
+    <div class="date-toggle-row">
+      <button class="date-mode-btn active" id="btnSingle" onclick="setDateMode('single')">Día</button>
+      <button class="date-mode-btn" id="btnRange" onclick="setDateMode('range')">Rango</button>
+    </div>
+    <div class="date-inputs">
+      <input type="date" id="dateSingle" onchange="renderAll()">
+      <span class="date-separator range-only" id="rangeSep">→</span>
+      <input type="date" id="dateEnd" class="range-only" onchange="renderAll()">
+    </div>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" id="tabBtnOperations" onclick="switchTab('operations',this)">
+    <span class="tab-icon">📋</span>Operaciones
+  </button>
+  <button class="tab-btn" id="tabBtnFinancial" onclick="switchTab('financial',this)">
+    <span class="tab-icon">💰</span>Cierre
+  </button>
+  <button class="tab-btn" id="tabBtnAnalytics" onclick="switchTab('analytics',this)">
+    <span class="tab-icon">📊</span>Análisis
+  </button>
+</div>
+
+<div class="main-content">
+  <div class="tab-panel active" id="tab-operations">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Tareas del Día</div>
+        <div class="section-subtitle" id="opsSubtitle"></div>
+      </div>
+      <div class="badge-count" id="opsTotalBadge">0</div>
+    </div>
+    <div class="scroll-hint" style="color:var(--text-muted)">← Deslizá entre cobradores →</div>
+    <div class="kanban-scroll" id="kanbanContainer"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-financial">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Cierre de Caja</div>
+        <div class="section-subtitle" id="finSubtitle"></div>
+      </div>
+    </div>
+    <div class="finance-section">
+      <div class="global-balance">
+        <div class="balance-label">Total Esperado del Período</div>
+        <div class="balance-total" id="balExpected">$0</div>
+        <div class="balance-grid" id="balGrid"></div>
+      </div>
+      <div id="ledgersContainer"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-analytics">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Rendimiento del Equipo</div>
+        <div class="section-subtitle">Análisis histórico completo</div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <div class="stat-card">
+        <div class="stat-card-title">Distribución Global de Estados</div>
+        <div class="status-summary" id="statusSummary"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Tasa de Éxito por Cobrador</div>
+        <div id="perfContainer"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Cobros Cruzados (Apoyo)</div>
+        <div id="crossContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATABASE — Full mock data
+// ============================================================
+
+const cobradores = [
+  { id: 1, nombre: 'Marcos', telefono: '3811110001', active: true },
+  { id: 2, nombre: 'Luis',   telefono: '3811110002', active: true },
+  { id: 3, nombre: 'Diego',  telefono: '3811110003', active: true }
+];
+
+const clientes = [
+  // Original clients
+  { id: 1, nombre: 'Ana García',         telefono: '3812220001', moneda: 'ARP', estatus: 'Activo',  creado: '2026-03-01 10:00:00' },
+  { id: 2, nombre: 'Carlos Rodríguez',   telefono: '3812220002', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-03-01 10:30:00' },
+  { id: 3, nombre: 'Sofia Méndez',       telefono: '3812220003', moneda: 'ARP', estatus: 'Activo',  creado: '2026-03-01 11:00:00' },
+  // New clients — Marcos (cobrador 1)
+  { id: 4,  nombre: 'Roberto Álvarez',   telefono: '3815010101', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-01 09:00:00' },
+  { id: 5,  nombre: 'Mariela Sánchez',   telefono: '3815020202', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-01 09:10:00' },
+  { id: 6,  nombre: 'Jorge Pereyra',     telefono: '3815030303', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-02 09:00:00' },
+  { id: 7,  nombre: 'Claudia Torres',    telefono: '3815040404', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-02 09:20:00' },
+  { id: 8,  nombre: 'Nelson Ríos',       telefono: '3815050505', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-03 10:00:00' },
+  { id: 9,  nombre: 'Valeria Gómez',     telefono: '3815060606', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-03 10:15:00' },
+  // New clients — Luis (cobrador 2)
+  { id: 10, nombre: 'Héctor Villalba',   telefono: '3815070707', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-04 08:30:00' },
+  { id: 11, nombre: 'Patricia Aguirre',  telefono: '3815080808', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-04 08:45:00' },
+  { id: 12, nombre: 'Daniel Herrera',    telefono: '3815090909', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-05 09:00:00' },
+  { id: 13, nombre: 'Graciela Luna',     telefono: '3815101010', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-05 09:30:00' },
+  { id: 14, nombre: 'Marcelo Benítez',   telefono: '3815111111', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-06 10:00:00' },
+  { id: 15, nombre: 'Silvia Romero',     telefono: '3815121212', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-06 10:20:00' },
+  // New clients — Diego (cobrador 3)
+  { id: 16, nombre: 'Gustavo Medina',    telefono: '3815131313', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-07 09:00:00' },
+  { id: 17, nombre: 'Laura Ibáñez',      telefono: '3815141414', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-07 09:15:00' },
+  { id: 18, nombre: 'Ricardo Juárez',    telefono: '3815151515', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-08 10:00:00' },
+  { id: 19, nombre: 'Fernanda Cabrera',  telefono: '3815161616', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-08 10:30:00' },
+  { id: 20, nombre: 'Pablo Mansilla',    telefono: '3815171717', moneda: 'ARP', estatus: 'Moroso',  creado: '2026-05-09 09:00:00' },
+  { id: 21, nombre: 'Mónica Reynoso',    telefono: '3815181818', moneda: 'ARP', estatus: 'Activo',  creado: '2026-05-09 09:20:00' }
+];
+
+const payment_schedules = [
+  // Original schedules
+  { id: 1, clienteId: 1, cobrador_id: 1, pagoAcordado: 200000.00, frecuencia: 'Semanal', status: 'Completed', active: true },
+  { id: 2, clienteId: 1, cobrador_id: 1, pagoAcordado: 200000.00, frecuencia: 'Semanal', status: 'Active',    active: true },
+  { id: 3, clienteId: 2, cobrador_id: 2, pagoAcordado: 500000.00, frecuencia: 'Semanal', status: 'Defaulted', active: false },
+  { id: 4, clienteId: 2, cobrador_id: 2, pagoAcordado: 750000.00, frecuencia: 'Semanal', status: 'Active',    active: true },
+  { id: 5, clienteId: 3, cobrador_id: 3, pagoAcordado: 350000.00, frecuencia: 'Semanal', status: 'Refinanced',active: false },
+  { id: 6, clienteId: 3, cobrador_id: 3, pagoAcordado: 450000.00, frecuencia: 'Semanal', status: 'Refinanced',active: false },
+  { id: 7, clienteId: 3, cobrador_id: 3, pagoAcordado: 250000.00, frecuencia: 'Semanal', status: 'Active',    active: true },
+  // New daily schedules — Marcos
+  { id: 8,  clienteId: 4,  cobrador_id: 1, pagoAcordado: 180000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 9,  clienteId: 5,  cobrador_id: 1, pagoAcordado: 120000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 10, clienteId: 6,  cobrador_id: 1, pagoAcordado: 240000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 11, clienteId: 7,  cobrador_id: 1, pagoAcordado: 150000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 12, clienteId: 8,  cobrador_id: 1, pagoAcordado: 300000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 13, clienteId: 9,  cobrador_id: 1, pagoAcordado:  96000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  // New daily schedules — Luis
+  { id: 14, clienteId: 10, cobrador_id: 2, pagoAcordado: 210000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 15, clienteId: 11, cobrador_id: 2, pagoAcordado: 144000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 16, clienteId: 12, cobrador_id: 2, pagoAcordado: 270000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 17, clienteId: 13, cobrador_id: 2, pagoAcordado: 168000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 18, clienteId: 14, cobrador_id: 2, pagoAcordado: 330000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 19, clienteId: 15, cobrador_id: 2, pagoAcordado: 126000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  // New daily schedules — Diego
+  { id: 20, clienteId: 16, cobrador_id: 3, pagoAcordado: 192000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 21, clienteId: 17, cobrador_id: 3, pagoAcordado: 138000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 22, clienteId: 18, cobrador_id: 3, pagoAcordado: 288000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 23, clienteId: 19, cobrador_id: 3, pagoAcordado: 162000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 24, clienteId: 20, cobrador_id: 3, pagoAcordado: 312000.00, frecuencia: 'Diaria', status: 'Active', active: true },
+  { id: 25, clienteId: 21, cobrador_id: 3, pagoAcordado: 114000.00, frecuencia: 'Diaria', status: 'Active', active: true }
+];
+
+// ============================================================
+// DO_PAYMENTS — original 52 + new daily ones for Jun 8–13
+// ============================================================
+// New IDs start at 53
+// Each new client gets a do_payment for each day Jun 8–13
+// Schedule:
+//   ps8  → client4  (Marcos)  → ids 53-58
+//   ps9  → client5  (Marcos)  → ids 59-64
+//   ps10 → client6  (Marcos)  → ids 65-70
+//   ps11 → client7  (Marcos)  → ids 71-76
+//   ps12 → client8  (Marcos)  → ids 77-82
+//   ps13 → client9  (Marcos)  → ids 83-88
+//   ps14 → client10 (Luis)    → ids 89-94
+//   ps15 → client11 (Luis)    → ids 95-100
+//   ps16 → client12 (Luis)    → ids 101-106
+//   ps17 → client13 (Luis)    → ids 107-112
+//   ps18 → client14 (Luis)    → ids 113-118
+//   ps19 → client15 (Luis)    → ids 119-124
+//   ps20 → client16 (Diego)   → ids 125-130
+//   ps21 → client17 (Diego)   → ids 131-136
+//   ps22 → client18 (Diego)   → ids 137-142
+//   ps23 → client19 (Diego)   → ids 143-148
+//   ps24 → client20 (Diego)   → ids 149-154
+//   ps25 → client21 (Diego)   → ids 155-160
+//
+// Days: d0=Jun08 d1=Jun09 d2=Jun10 d3=Jun11 d4=Jun12 d5=Jun13
+//
+// Jun 08 & 09 = completed days. All tasks are Paid or Unreachable.
+// Jun 10–13 = mixed: some Pending, some Overdue, some Unreachable
+//
+// Statuses per client per day (d0..d5):
+// Jorge Pereyra (6), Nelson Ríos (8), Daniel Herrera (12), Marcelo Benítez (14), Ricardo Juárez (18), Pablo Mansilla (20) = morosos → frequent Overdue/Unreachable
+//
+// Marcos clients:  Roberto(4) Mariela(5) Jorge(6) Claudia(7) Nelson(8) Valeria(9)
+// Luis clients:    Héctor(10) Patricia(11) Daniel(12) Graciela(13) Marcelo(14) Silvia(15)
+// Diego clients:   Gustavo(16) Laura(17) Ricardo(18) Fernanda(19) Pablo(20) Mónica(21)
+
+const do_payments = [
+  // ── ORIGINAL DO_PAYMENTS (1–52) ──────────────────────────
+  { id:1,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-03-09', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:2,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-03-16', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:3,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-03-23', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:4,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-03-30', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:5,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-04-06', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:6,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-04-13', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:7,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-04-20', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:8,  payment_schedule_id:1, monto_esperado:25000, fecha_esperada:'2026-04-27', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:9,  payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-05-11', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:10, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-05-18', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:11, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-05-25', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:12, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-06-01', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:13, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-06-08', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:14, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-06-15', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:15, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-06-22', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:16, payment_schedule_id:2, monto_esperado:25000, fecha_esperada:'2026-06-29', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:17, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-03-09', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:18, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-03-16', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:19, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-03-23', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:20, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-03-30', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:21, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-04-06', status:'Overdue', special_case_cobrador_id:null, special_case_notes:null },
+  { id:22, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-04-13', status:'Overdue', special_case_cobrador_id:null, special_case_notes:null },
+  { id:23, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-04-20', status:'Overdue', special_case_cobrador_id:null, special_case_notes:null },
+  { id:24, payment_schedule_id:3, monto_esperado:62500, fecha_esperada:'2026-04-27', status:'Overdue', special_case_cobrador_id:null, special_case_notes:null },
+  { id:25, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-05-11', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:26, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-05-18', status:'Paid', special_case_cobrador_id:3, special_case_notes:'Diego took over collection' },
+  { id:27, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-05-25', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:28, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-06-01', status:'Paid', special_case_cobrador_id:3, special_case_notes:'Diego collected' },
+  { id:29, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-06-08', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:30, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-06-15', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:31, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-06-22', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:32, payment_schedule_id:4, monto_esperado:93750, fecha_esperada:'2026-06-29', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:33, payment_schedule_id:5, monto_esperado:87500, fecha_esperada:'2026-03-09', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:34, payment_schedule_id:5, monto_esperado:87500, fecha_esperada:'2026-03-16', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:35, payment_schedule_id:5, monto_esperado:87500, fecha_esperada:'2026-03-23', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:36, payment_schedule_id:5, monto_esperado:87500, fecha_esperada:'2026-03-30', status:'Refinanced', special_case_cobrador_id:null, special_case_notes:null },
+  { id:37, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-04-06', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:38, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-04-13', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:39, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-04-20', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:40, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-04-27', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:41, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-05-04', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:42, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-05-11', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:43, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-05-18', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:44, payment_schedule_id:6, monto_esperado:56250, fecha_esperada:'2026-05-25', status:'Refinanced', special_case_cobrador_id:null, special_case_notes:null },
+  { id:45, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-06-01', status:'Paid', special_case_cobrador_id:null, special_case_notes:null },
+  { id:46, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-06-08', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:47, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-06-15', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:48, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-06-22', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:49, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-06-29', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:50, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-07-06', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:51, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-07-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:52, payment_schedule_id:7, monto_esperado:31250, fecha_esperada:'2026-07-20', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // ── NEW DAILY DO_PAYMENTS Jun 08–13 ────────────────────────
+  // MARCOS — ps8 / Roberto Álvarez (buen pagador)
+  // Jun08=Paid, Jun09=Paid, Jun10=Paid, Jun11=Paid, Jun12=Pending, Jun13=Pending
+  { id:53, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:54, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:55, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:56, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:57, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:58, payment_schedule_id:8, monto_esperado:15000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // MARCOS — ps9 / Mariela Sánchez (buen pagador)
+  // Jun08=Paid, Jun09=Paid, Jun10=Paid, Jun11=Paid, Jun12=Pending, Jun13=Pending
+  { id:59, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:60, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:61, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:62, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-11', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:63, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:64, payment_schedule_id:9, monto_esperado:10000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // MARCOS — ps10 / Jorge Pereyra (MOROSO — frecuente Overdue/Unreachable)
+  // Jun08=Unreachable, Jun09=Unreachable, Jun10=Overdue, Jun11=Overdue, Jun12=Overdue, Jun13=Overdue
+  { id:65, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:66, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-09', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:67, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:68, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:69, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:70, payment_schedule_id:10, monto_esperado:20000, fecha_esperada:'2026-06-13', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+
+  // MARCOS — ps11 / Claudia Torres (buen pagador)
+  { id:71, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:72, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:73, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:74, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-11', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:75, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:76, payment_schedule_id:11, monto_esperado:12500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // MARCOS — ps12 / Nelson Ríos (MOROSO)
+  // Jun08=Unreachable, Jun09=Paid (Diego lo cubrió cross), Jun10=Overdue, Jun11=Overdue, Jun12=Overdue, Jun13=Pending
+  { id:77, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:78, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-09', status:'Paid',        special_case_cobrador_id:3,    special_case_notes:'Diego cubrió ruta de Marcos' },
+  { id:79, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:80, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:81, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:82, payment_schedule_id:12, monto_esperado:25000, fecha_esperada:'2026-06-13', status:'Pending',     special_case_cobrador_id:null, special_case_notes:null },
+
+  // MARCOS — ps13 / Valeria Gómez
+  { id:83, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:84, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:85, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:86, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:87, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:88, payment_schedule_id:13, monto_esperado:8000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // LUIS — ps14 / Héctor Villalba (buen pagador)
+  { id:89, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:90, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:91, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:92, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:93, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:94, payment_schedule_id:14, monto_esperado:17500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // LUIS — ps15 / Patricia Aguirre
+  { id:95,  payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:96,  payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:97,  payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:98,  payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-11', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:99,  payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:100, payment_schedule_id:15, monto_esperado:12000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // LUIS — ps16 / Daniel Herrera (MOROSO)
+  { id:101, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:102, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-09', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:103, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:104, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:105, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:106, payment_schedule_id:16, monto_esperado:22500, fecha_esperada:'2026-06-13', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+
+  // LUIS — ps17 / Graciela Luna
+  { id:107, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:108, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:109, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:110, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:111, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:112, payment_schedule_id:17, monto_esperado:14000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // LUIS — ps18 / Marcelo Benítez (MOROSO — alternating Paid/Unreachable)
+  // Jun08=Unreachable, Jun09=Paid (Marcos cubrió), Jun10=Overdue, Jun11=Overdue, Jun12=Overdue, Jun13=Pending
+  { id:113, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null,  special_case_notes:null },
+  { id:114, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-09', status:'Paid',        special_case_cobrador_id:1,     special_case_notes:'Marcos cubrió ruta de Luis' },
+  { id:115, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null,  special_case_notes:null },
+  { id:116, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null,  special_case_notes:null },
+  { id:117, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null,  special_case_notes:null },
+  { id:118, payment_schedule_id:18, monto_esperado:27500, fecha_esperada:'2026-06-13', status:'Pending',     special_case_cobrador_id:null,  special_case_notes:null },
+
+  // LUIS — ps19 / Silvia Romero (buen pagador)
+  { id:119, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:120, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:121, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:122, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:123, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:124, payment_schedule_id:19, monto_esperado:10500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps20 / Gustavo Medina
+  { id:125, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:126, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:127, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:128, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:129, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:130, payment_schedule_id:20, monto_esperado:16000, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps21 / Laura Ibáñez
+  { id:131, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:132, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:133, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:134, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-11', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:135, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:136, payment_schedule_id:21, monto_esperado:11500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps22 / Ricardo Juárez (MOROSO)
+  // Jun08=Unreachable, Jun09=Unreachable, Jun10=Overdue, Jun11=Overdue, Jun12=Overdue, Jun13=Overdue
+  { id:137, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:138, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-09', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:139, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:140, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:141, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:142, payment_schedule_id:22, monto_esperado:24000, fecha_esperada:'2026-06-13', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps23 / Fernanda Cabrera (buen pagador)
+  { id:143, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:144, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:145, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:146, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:147, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:148, payment_schedule_id:23, monto_esperado:13500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps24 / Pablo Mansilla (MOROSO — cross-collected by Luis Jun09)
+  { id:149, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-08', status:'Unreachable', special_case_cobrador_id:null, special_case_notes:null },
+  { id:150, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-09', status:'Paid',        special_case_cobrador_id:2,    special_case_notes:'Luis cobró por Diego (zona cercana)' },
+  { id:151, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-10', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:152, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-11', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:153, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-12', status:'Overdue',     special_case_cobrador_id:null, special_case_notes:null },
+  { id:154, payment_schedule_id:24, monto_esperado:26000, fecha_esperada:'2026-06-13', status:'Pending',     special_case_cobrador_id:null, special_case_notes:null },
+
+  // DIEGO — ps25 / Mónica Reynoso (buen pagador)
+  { id:155, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-08', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:156, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-09', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:157, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-10', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:158, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-11', status:'Paid',    special_case_cobrador_id:null, special_case_notes:null },
+  { id:159, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-12', status:'Pending', special_case_cobrador_id:null, special_case_notes:null },
+  { id:160, payment_schedule_id:25, monto_esperado:9500, fecha_esperada:'2026-06-13', status:'Pending', special_case_cobrador_id:null, special_case_notes:null }
+];
+
+// ============================================================
+// TRANSACCIONES — original + new (for Paid do_payments in Jun 8–13)
+// ============================================================
+const transacciones = [
+  // Original
+  { id:1,  clienteId:1, do_payment_id:1,  tipo:'PAGO', concepto:'Cuota 1/8', monto:25000, fecha:'2026-03-09 14:00:00' },
+  { id:2,  clienteId:1, do_payment_id:2,  tipo:'PAGO', concepto:'Cuota 2/8', monto:25000, fecha:'2026-03-16 14:00:00' },
+  { id:3,  clienteId:1, do_payment_id:3,  tipo:'PAGO', concepto:'Cuota 3/8', monto:25000, fecha:'2026-03-23 14:00:00' },
+  { id:4,  clienteId:1, do_payment_id:4,  tipo:'PAGO', concepto:'Cuota 4/8', monto:25000, fecha:'2026-03-30 14:00:00' },
+  { id:5,  clienteId:1, do_payment_id:5,  tipo:'PAGO', concepto:'Cuota 5/8', monto:25000, fecha:'2026-04-06 14:00:00' },
+  { id:6,  clienteId:1, do_payment_id:6,  tipo:'PAGO', concepto:'Cuota 6/8', monto:25000, fecha:'2026-04-13 14:00:00' },
+  { id:7,  clienteId:1, do_payment_id:7,  tipo:'PAGO', concepto:'Cuota 7/8', monto:25000, fecha:'2026-04-20 14:00:00' },
+  { id:8,  clienteId:1, do_payment_id:8,  tipo:'PAGO', concepto:'Cuota 8/8', monto:25000, fecha:'2026-04-27 14:00:00' },
+  { id:9,  clienteId:1, do_payment_id:9,  tipo:'PAGO', concepto:'Cuota 1/8', monto:25000, fecha:'2026-05-11 14:00:00' },
+  { id:10, clienteId:1, do_payment_id:10, tipo:'PAGO', concepto:'Cuota 2/8', monto:25000, fecha:'2026-05-18 14:00:00' },
+  { id:11, clienteId:1, do_payment_id:11, tipo:'PAGO', concepto:'Cuota 3/8', monto:25000, fecha:'2026-05-25 14:00:00' },
+  { id:12, clienteId:1, do_payment_id:12, tipo:'PAGO', concepto:'Cuota 4/8', monto:25000, fecha:'2026-06-01 14:00:00' },
+  { id:13, clienteId:2, do_payment_id:17, tipo:'PAGO', concepto:'Cuota 1/8', monto:62500, fecha:'2026-03-09 15:00:00' },
+  { id:14, clienteId:2, do_payment_id:18, tipo:'PAGO', concepto:'Cuota 2/8', monto:62500, fecha:'2026-03-16 15:00:00' },
+  { id:15, clienteId:2, do_payment_id:19, tipo:'PAGO', concepto:'Cuota 3/8', monto:62500, fecha:'2026-03-23 15:00:00' },
+  { id:16, clienteId:2, do_payment_id:20, tipo:'PAGO', concepto:'Cuota 4/8', monto:62500, fecha:'2026-03-30 15:00:00' },
+  { id:17, clienteId:2, do_payment_id:25, tipo:'PAGO', concepto:'Cuota 1/8', monto:93750, fecha:'2026-05-11 15:30:00' },
+  { id:18, clienteId:2, do_payment_id:26, tipo:'PAGO', concepto:'Cuota 2/8 (Apoyo Diego)', monto:93750, fecha:'2026-05-18 16:00:00' },
+  { id:19, clienteId:2, do_payment_id:27, tipo:'PAGO', concepto:'Cuota 3/8', monto:93750, fecha:'2026-05-25 15:30:00' },
+  { id:20, clienteId:2, do_payment_id:28, tipo:'PAGO', concepto:'Cuota 4/8 (Apoyo Diego)', monto:93750, fecha:'2026-06-01 16:00:00' },
+  { id:21, clienteId:3, do_payment_id:33, tipo:'PAGO', concepto:'Cuota 1/4', monto:87500, fecha:'2026-03-09 11:00:00' },
+  { id:22, clienteId:3, do_payment_id:34, tipo:'PAGO', concepto:'Cuota 2/4', monto:87500, fecha:'2026-03-16 11:00:00' },
+  { id:23, clienteId:3, do_payment_id:35, tipo:'PAGO', concepto:'Cuota 3/4', monto:87500, fecha:'2026-03-23 11:00:00' },
+  { id:24, clienteId:3, do_payment_id:37, tipo:'PAGO', concepto:'Cuota 1/8', monto:56250, fecha:'2026-04-06 11:00:00' },
+  { id:25, clienteId:3, do_payment_id:38, tipo:'PAGO', concepto:'Cuota 2/8', monto:56250, fecha:'2026-04-13 11:00:00' },
+  { id:26, clienteId:3, do_payment_id:39, tipo:'PAGO', concepto:'Cuota 3/8', monto:56250, fecha:'2026-04-20 11:00:00' },
+  { id:27, clienteId:3, do_payment_id:40, tipo:'PAGO', concepto:'Cuota 4/8', monto:56250, fecha:'2026-04-27 11:00:00' },
+  { id:28, clienteId:3, do_payment_id:41, tipo:'PAGO', concepto:'Cuota 5/8', monto:56250, fecha:'2026-05-04 11:00:00' },
+  { id:29, clienteId:3, do_payment_id:42, tipo:'PAGO', concepto:'Cuota 6/8', monto:56250, fecha:'2026-05-11 11:00:00' },
+  { id:30, clienteId:3, do_payment_id:43, tipo:'PAGO', concepto:'Cuota 7/8', monto:56250, fecha:'2026-05-18 11:00:00' },
+  { id:31, clienteId:3, do_payment_id:45, tipo:'PAGO', concepto:'Cuota 1/8', monto:31250, fecha:'2026-06-01 11:00:00' },
+  // New transacciones for Jun 8–13 Paid do_payments
+  // Roberto Álvarez (client4) — ps8
+  { id:32, clienteId:4, do_payment_id:53, tipo:'PAGO', concepto:'Cuota diaria', monto:15000, fecha:'2026-06-08 10:00:00' },
+  { id:33, clienteId:4, do_payment_id:54, tipo:'PAGO', concepto:'Cuota diaria', monto:15000, fecha:'2026-06-09 10:00:00' },
+  { id:34, clienteId:4, do_payment_id:55, tipo:'PAGO', concepto:'Cuota diaria', monto:15000, fecha:'2026-06-10 10:00:00' },
+  { id:35, clienteId:4, do_payment_id:56, tipo:'PAGO', concepto:'Cuota diaria', monto:15000, fecha:'2026-06-11 10:00:00' },
+  // Mariela Sánchez (client5) — ps9
+  { id:36, clienteId:5, do_payment_id:59, tipo:'PAGO', concepto:'Cuota diaria', monto:10000, fecha:'2026-06-08 10:30:00' },
+  { id:37, clienteId:5, do_payment_id:60, tipo:'PAGO', concepto:'Cuota diaria', monto:10000, fecha:'2026-06-09 10:30:00' },
+  { id:38, clienteId:5, do_payment_id:61, tipo:'PAGO', concepto:'Cuota diaria', monto:10000, fecha:'2026-06-10 10:30:00' },
+  // Claudia Torres (client7) — ps11
+  { id:39, clienteId:7, do_payment_id:71, tipo:'PAGO', concepto:'Cuota diaria', monto:12500, fecha:'2026-06-08 11:00:00' },
+  { id:40, clienteId:7, do_payment_id:72, tipo:'PAGO', concepto:'Cuota diaria', monto:12500, fecha:'2026-06-09 11:00:00' },
+  { id:41, clienteId:7, do_payment_id:73, tipo:'PAGO', concepto:'Cuota diaria', monto:12500, fecha:'2026-06-10 11:00:00' },
+  // Nelson Ríos cross (client8) — ps12 — Diego cobró Jun09
+  { id:42, clienteId:8, do_payment_id:78, tipo:'PAGO', concepto:'Cuota diaria (Apoyo Diego)', monto:25000, fecha:'2026-06-09 14:00:00' },
+  // Valeria Gómez (client9) — ps13
+  { id:43, clienteId:9, do_payment_id:83, tipo:'PAGO', concepto:'Cuota diaria', monto:8000, fecha:'2026-06-08 11:30:00' },
+  { id:44, clienteId:9, do_payment_id:84, tipo:'PAGO', concepto:'Cuota diaria', monto:8000, fecha:'2026-06-09 11:30:00' },
+  { id:45, clienteId:9, do_payment_id:85, tipo:'PAGO', concepto:'Cuota diaria', monto:8000, fecha:'2026-06-10 11:30:00' },
+  { id:46, clienteId:9, do_payment_id:86, tipo:'PAGO', concepto:'Cuota diaria', monto:8000, fecha:'2026-06-11 11:30:00' },
+  // Héctor Villalba (client10) — ps14
+  { id:47, clienteId:10, do_payment_id:89, tipo:'PAGO', concepto:'Cuota diaria', monto:17500, fecha:'2026-06-08 09:30:00' },
+  { id:48, clienteId:10, do_payment_id:90, tipo:'PAGO', concepto:'Cuota diaria', monto:17500, fecha:'2026-06-09 09:30:00' },
+  { id:49, clienteId:10, do_payment_id:91, tipo:'PAGO', concepto:'Cuota diaria', monto:17500, fecha:'2026-06-10 09:30:00' },
+  { id:50, clienteId:10, do_payment_id:92, tipo:'PAGO', concepto:'Cuota diaria', monto:17500, fecha:'2026-06-11 09:30:00' },
+  // Patricia Aguirre (client11) — ps15
+  { id:51, clienteId:11, do_payment_id:95,  tipo:'PAGO', concepto:'Cuota diaria', monto:12000, fecha:'2026-06-08 10:00:00' },
+  { id:52, clienteId:11, do_payment_id:96,  tipo:'PAGO', concepto:'Cuota diaria', monto:12000, fecha:'2026-06-09 10:00:00' },
+  { id:53, clienteId:11, do_payment_id:97,  tipo:'PAGO', concepto:'Cuota diaria', monto:12000, fecha:'2026-06-10 10:00:00' },
+  // Graciela Luna (client13) — ps17
+  { id:54, clienteId:13, do_payment_id:107, tipo:'PAGO', concepto:'Cuota diaria', monto:14000, fecha:'2026-06-08 10:30:00' },
+  { id:55, clienteId:13, do_payment_id:108, tipo:'PAGO', concepto:'Cuota diaria', monto:14000, fecha:'2026-06-09 10:30:00' },
+  { id:56, clienteId:13, do_payment_id:109, tipo:'PAGO', concepto:'Cuota diaria', monto:14000, fecha:'2026-06-10 10:30:00' },
+  { id:57, clienteId:13, do_payment_id:110, tipo:'PAGO', concepto:'Cuota diaria', monto:14000, fecha:'2026-06-11 10:30:00' },
+  // Marcelo Benítez cross (client14) — ps18 — Marcos cobró Jun09
+  { id:58, clienteId:14, do_payment_id:114, tipo:'PAGO', concepto:'Cuota diaria (Apoyo Marcos)', monto:27500, fecha:'2026-06-09 14:30:00' },
+  // Silvia Romero (client15) — ps19
+  { id:59, clienteId:15, do_payment_id:119, tipo:'PAGO', concepto:'Cuota diaria', monto:10500, fecha:'2026-06-08 11:00:00' },
+  { id:60, clienteId:15, do_payment_id:120, tipo:'PAGO', concepto:'Cuota diaria', monto:10500, fecha:'2026-06-09 11:00:00' },
+  { id:61, clienteId:15, do_payment_id:121, tipo:'PAGO', concepto:'Cuota diaria', monto:10500, fecha:'2026-06-10 11:00:00' },
+  { id:62, clienteId:15, do_payment_id:122, tipo:'PAGO', concepto:'Cuota diaria', monto:10500, fecha:'2026-06-11 11:00:00' },
+  // Gustavo Medina (client16) — ps20
+  { id:63, clienteId:16, do_payment_id:125, tipo:'PAGO', concepto:'Cuota diaria', monto:16000, fecha:'2026-06-08 09:00:00' },
+  { id:64, clienteId:16, do_payment_id:126, tipo:'PAGO', concepto:'Cuota diaria', monto:16000, fecha:'2026-06-09 09:00:00' },
+  { id:65, clienteId:16, do_payment_id:127, tipo:'PAGO', concepto:'Cuota diaria', monto:16000, fecha:'2026-06-10 09:00:00' },
+  { id:66, clienteId:16, do_payment_id:128, tipo:'PAGO', concepto:'Cuota diaria', monto:16000, fecha:'2026-06-11 09:00:00' },
+  // Laura Ibáñez (client17) — ps21
+  { id:67, clienteId:17, do_payment_id:131, tipo:'PAGO', concepto:'Cuota diaria', monto:11500, fecha:'2026-06-08 09:30:00' },
+  { id:68, clienteId:17, do_payment_id:132, tipo:'PAGO', concepto:'Cuota diaria', monto:11500, fecha:'2026-06-09 09:30:00' },
+  { id:69, clienteId:17, do_payment_id:133, tipo:'PAGO', concepto:'Cuota diaria', monto:11500, fecha:'2026-06-10 09:30:00' },
+  // Fernanda Cabrera (client19) — ps23
+  { id:70, clienteId:19, do_payment_id:143, tipo:'PAGO', concepto:'Cuota diaria', monto:13500, fecha:'2026-06-08 10:00:00' },
+  { id:71, clienteId:19, do_payment_id:144, tipo:'PAGO', concepto:'Cuota diaria', monto:13500, fecha:'2026-06-09 10:00:00' },
+  { id:72, clienteId:19, do_payment_id:145, tipo:'PAGO', concepto:'Cuota diaria', monto:13500, fecha:'2026-06-10 10:00:00' },
+  { id:73, clienteId:19, do_payment_id:146, tipo:'PAGO', concepto:'Cuota diaria', monto:13500, fecha:'2026-06-11 10:00:00' },
+  // Pablo Mansilla cross (client20) — ps24 — Luis cobró Jun09
+  { id:74, clienteId:20, do_payment_id:150, tipo:'PAGO', concepto:'Cuota diaria (Apoyo Luis)', monto:26000, fecha:'2026-06-09 15:00:00' },
+  // Mónica Reynoso (client21) — ps25
+  { id:75, clienteId:21, do_payment_id:155, tipo:'PAGO', concepto:'Cuota diaria', monto:9500, fecha:'2026-06-08 10:30:00' },
+  { id:76, clienteId:21, do_payment_id:156, tipo:'PAGO', concepto:'Cuota diaria', monto:9500, fecha:'2026-06-09 10:30:00' },
+  { id:77, clienteId:21, do_payment_id:157, tipo:'PAGO', concepto:'Cuota diaria', monto:9500, fecha:'2026-06-10 10:30:00' },
+  { id:78, clienteId:21, do_payment_id:158, tipo:'PAGO', concepto:'Cuota diaria', monto:9500, fecha:'2026-06-11 10:30:00' }
+];
+
+// ============================================================
+// HELPERS
+// ============================================================
+const COB_COLORS = ['#1A6FE8','#0891B2','#7C3AED'];
+
+function fmt(n) {
+  return '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function getClientById(id) { return clientes.find(c => c.id === id); }
+function getCobradorById(id) { return cobradores.find(c => c.id === id); }
+function getScheduleById(id) { return payment_schedules.find(s => s.id === id); }
+function getInitials(name) { return name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase(); }
+function statusLabel(s) { return {Paid:'Cobrado',Pending:'Pendiente',Overdue:'Vencido',Unreachable:'Sin Contacto',Refinanced:'Refinanciado'}[s] || s; }
+function statusClass(s) { return {Paid:'status-paid',Pending:'status-pending',Overdue:'status-overdue',Unreachable:'status-unreachable',Refinanced:'status-refinanced'}[s]||'status-pending'; }
+function statusChipClass(s) { return {Paid:'chip-green',Pending:'chip-yellow',Overdue:'chip-red',Unreachable:'chip-orange',Refinanced:'chip-gray'}[s]||'chip-gray'; }
+function getAssigneeCobrador(dp) { const s=getScheduleById(dp.payment_schedule_id); return s?s.cobrador_id:null; }
+
+const WA_SVG = `<svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.116 1.525 5.847L.057 23.882c-.065.243.158.466.401.401l6.079-1.468A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-1.923 0-3.716-.544-5.231-1.484l-.376-.223-3.89.94.959-3.802-.246-.391A9.802 9.802 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>`;
+
+// ============================================================
+// DATE CONTROL
+// ============================================================
+let dateMode = 'single';
+
+function setDateMode(mode) {
+  dateMode = mode;
+  document.getElementById('btnSingle').classList.toggle('active', mode==='single');
+  document.getElementById('btnRange').classList.toggle('active', mode==='range');
+  document.querySelectorAll('.range-only').forEach(el => el.style.display = mode==='range' ? '' : 'none');
+  renderAll();
+}
+
+function getDateRange() {
+  const s = document.getElementById('dateSingle').value;
+  const e = document.getElementById('dateEnd').value;
+  if (dateMode === 'single') return { start: s, end: s };
+  return { start: s, end: (e && e >= s) ? e : s };
+}
+
+function getFilteredDoPayments() {
+  const { start, end } = getDateRange();
+  return do_payments.filter(dp => dp.fecha_esperada >= start && dp.fecha_esperada <= end);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  const today = '2026-06-08';
+  document.getElementById('dateSingle').value = today;
+  document.getElementById('dateEnd').value = today;
+  const d = new Date(today + 'T12:00:00');
+  document.getElementById('todayBadge').textContent = d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+  renderAll();
+}
+
+function renderAll() { renderOperations(); renderFinancial(); renderAnalytics(); }
+
+// ============================================================
+// TAB SWITCH
+// ============================================================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// OPERATIONS
+// ============================================================
+function renderOperations() {
+  const filtered = getFilteredDoPayments();
+  const { start, end } = getDateRange();
+  document.getElementById('opsSubtitle').textContent = start===end ? formatDateDisplay(start) : `${formatDateDisplay(start)} → ${formatDateDisplay(end)}`;
+  document.getElementById('opsTotalBadge').textContent = filtered.length;
+
+  const container = document.getElementById('kanbanContainer');
+  if (!filtered.length) {
+    container.innerHTML = `<div class="no-data" style="width:100%;padding:40px 20px"><div class="no-data-icon">📭</div><div class="no-data-text">Sin cobros para este período</div></div>`;
+    return;
+  }
+
+  const sortOrder = { Overdue:0, Unreachable:1, Pending:2, Paid:3, Refinanced:4 };
+
+  let html = '';
+  cobradores.forEach((cob, idx) => {
+    const cards = filtered.filter(dp => getAssigneeCobrador(dp) === cob.id);
+    if (!cards.length) return;
+
+    const paid = cards.filter(c=>c.status==='Paid').length;
+    const pending = cards.filter(c=>c.status==='Pending').length;
+    const overdue = cards.filter(c=>c.status==='Overdue').length;
+    const unreach = cards.filter(c=>c.status==='Unreachable').length;
+    const totalMonto = cards.reduce((s,c)=>s+Number(c.monto_esperado),0);
+    const color = COB_COLORS[idx%COB_COLORS.length];
+
+    const sorted = [...cards].sort((a,b)=>(sortOrder[a.status]??9)-(sortOrder[b.status]??9));
+
+    html += `<div class="kanban-col">
+      <div class="col-header">
+        <div class="col-avatar" style="background:${color}">${getInitials(cob.nombre)}</div>
+        <div class="col-info">
+          <div class="col-name">${cob.nombre}</div>
+          <div class="col-total">${fmt(totalMonto)} esperado</div>
+          <div class="col-stats">
+            ${paid?`<span class="col-stat chip-green">${paid}✓</span>`:''}
+            ${pending?`<span class="col-stat chip-yellow">${pending}⏳</span>`:''}
+            ${overdue?`<span class="col-stat chip-red">${overdue}⚠</span>`:''}
+            ${unreach?`<span class="col-stat chip-orange">${unreach}📵</span>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="col-cards">`;
+
+    sorted.forEach(dp => {
+      const schedule = getScheduleById(dp.payment_schedule_id);
+      const client = schedule ? getClientById(schedule.clienteId) : null;
+      if (!client) return;
+      const isSpecial = dp.special_case_cobrador_id != null;
+      const specialCob = isSpecial ? getCobradorById(dp.special_case_cobrador_id) : null;
+      const waLink = `https://wa.me/${client.telefono}`;
+      const freq = schedule ? schedule.frecuencia : '';
+
+      html += `<div class="pay-card ${statusClass(dp.status)}">
+        <div class="card-top">
+          <div>
+            <div class="card-client">${client.nombre}</div>
+            <div class="card-ref">Plan #${schedule.id} · ${freq} · ${dp.fecha_esperada}</div>
+          </div>
+          <div class="status-dot"></div>
+        </div>
+        <div class="card-bottom">
+          <div>
+            <div class="card-amount">${fmt(dp.monto_esperado)}</div>
+            <div style="margin-top:4px;display:flex;gap:3px;flex-wrap:wrap">
+              <span class="chip ${statusChipClass(dp.status)}">${statusLabel(dp.status)}</span>
+              ${isSpecial?`<span class="special-badge">⇄ ${specialCob?specialCob.nombre:'?'}</span>`:''}
+            </div>
+          </div>
+          <div class="card-actions">
+            <a href="${waLink}" class="wa-btn" target="_blank">${WA_SVG}</a>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html || `<div class="no-data" style="width:100%;padding:40px"><div class="no-data-text">Sin datos</div></div>`;
+}
+
+// ============================================================
+// FINANCIAL
+// ============================================================
+function renderFinancial() {
+  const filtered = getFilteredDoPayments();
+  const { start, end } = getDateRange();
+  document.getElementById('finSubtitle').textContent = start===end ? formatDateDisplay(start) : `${formatDateDisplay(start)} → ${formatDateDisplay(end)}`;
+
+  const expected = filtered.reduce((s,dp)=>s+Number(dp.monto_esperado),0);
+  const collected = filtered.filter(dp=>dp.status==='Paid').reduce((s,dp)=>s+Number(dp.monto_esperado),0);
+  const pendingAmt = filtered.filter(dp=>dp.status==='Pending').reduce((s,dp)=>s+Number(dp.monto_esperado),0);
+  const deficit = filtered.filter(dp=>dp.status==='Overdue'||dp.status==='Unreachable').reduce((s,dp)=>s+Number(dp.monto_esperado),0);
+  const pct = expected > 0 ? Math.round((collected/expected)*100) : 0;
+
+  document.getElementById('balExpected').textContent = fmt(expected);
+  document.getElementById('balGrid').innerHTML = `
+    <div class="balance-item"><div class="bi-label">Cobrado</div><div class="bi-amount positive">${fmt(collected)}</div></div>
+    <div class="balance-item"><div class="bi-label">Pendiente</div><div class="bi-amount warn">${fmt(pendingAmt)}</div></div>
+    <div class="balance-item"><div class="bi-label">Déficit</div><div class="bi-amount negative">${fmt(deficit)}</div></div>
+    <div class="balance-item"><div class="bi-label">Efectividad</div><div class="bi-amount">${pct}%</div></div>
+  `;
+
+  let ledgersHtml = '';
+  cobradores.forEach((cob, idx) => {
+    const color = COB_COLORS[idx%COB_COLORS.length];
+    const ownPaid   = filtered.filter(dp=>getAssigneeCobrador(dp)===cob.id&&dp.status==='Paid'&&!dp.special_case_cobrador_id);
+    const crossPaid = filtered.filter(dp=>dp.special_case_cobrador_id===cob.id&&dp.status==='Paid');
+    const overdueItems   = filtered.filter(dp=>getAssigneeCobrador(dp)===cob.id&&dp.status==='Overdue');
+    const unreachItems   = filtered.filter(dp=>getAssigneeCobrador(dp)===cob.id&&dp.status==='Unreachable');
+
+    const totalDeliver = [...ownPaid,...crossPaid].reduce((s,dp)=>s+Number(dp.monto_esperado),0);
+
+    if (!ownPaid.length && !crossPaid.length && !overdueItems.length && !unreachItems.length) return;
+
+    ledgersHtml += `<div class="ledger-card">
+      <div class="ledger-header">
+        <div class="ledger-avatar" style="background:${color}">${getInitials(cob.nombre)}</div>
+        <div class="ledger-info">
+          <div class="ledger-name">${cob.nombre}</div>
+          <div class="deliver-label">A Entregar</div>
+        </div>
+        <div style="text-align:right"><div class="ledger-deliver">${fmt(totalDeliver)}</div></div>
+      </div>
+      <div class="ledger-rows">`;
+
+    ownPaid.forEach(dp => {
+      const s=getScheduleById(dp.payment_schedule_id); const c=s?getClientById(s.clienteId):null;
+      ledgersHtml += `<div class="ledger-row own"><span class="lr-tag tag-own">Propio</span><span class="lr-client">${c?c.nombre:'—'}</span><span class="lr-amount color-green">${fmt(dp.monto_esperado)}</span></div>`;
+    });
+
+    crossPaid.forEach(dp => {
+      const s=getScheduleById(dp.payment_schedule_id); const c=s?getClientById(s.clienteId):null;
+      const origCob=getCobradorById(getAssigneeCobrador(dp));
+      ledgersHtml += `<div class="ledger-row cross"><span class="lr-tag tag-cross">Apoyo→${origCob?origCob.nombre:'?'}</span><span class="lr-client">${c?c.nombre:'—'}</span><span class="lr-amount color-blue">${fmt(dp.monto_esperado)}</span></div>`;
+    });
+
+    overdueItems.forEach(dp => {
+      const s=getScheduleById(dp.payment_schedule_id); const c=s?getClientById(s.clienteId):null;
+      const waLink=c?`https://wa.me/${c.telefono}`:'#';
+      ledgersHtml += `<div class="ledger-row overdue"><span class="lr-tag tag-overdue">Vencido</span><span class="lr-client">${c?c.nombre:'—'}</span><div style="display:flex;gap:5px;align-items:center"><span class="lr-amount color-red">${fmt(dp.monto_esperado)}</span>${c?`<a href="${waLink}" class="wa-btn sm" target="_blank">${WA_SVG}</a>`:''}</div></div>`;
+    });
+
+    unreachItems.forEach(dp => {
+      const s=getScheduleById(dp.payment_schedule_id); const c=s?getClientById(s.clienteId):null;
+      const waLink=c?`https://wa.me/${c.telefono}`:'#';
+      ledgersHtml += `<div class="ledger-row unreachable"><span class="lr-tag tag-unreachable">Sin Contacto</span><span class="lr-client">${c?c.nombre:'—'}</span><div style="display:flex;gap:5px;align-items:center"><span class="lr-amount color-orange">${fmt(dp.monto_esperado)}</span>${c?`<a href="${waLink}" class="wa-btn sm" target="_blank">${WA_SVG}</a>`:''}</div></div>`;
+    });
+
+    ledgersHtml += `</div></div>`;
+  });
+
+  document.getElementById('ledgersContainer').innerHTML = ledgersHtml || `<div class="no-data"><div class="no-data-icon">💸</div><div class="no-data-text">Sin movimientos para este período</div></div>`;
+}
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+function renderAnalytics() {
+  const allDp = do_payments;
+  const counts = { Paid:0, Pending:0, Overdue:0, Unreachable:0, Refinanced:0 };
+  allDp.forEach(dp => { if (counts[dp.status]!==undefined) counts[dp.status]++; });
+
+  const ssColors = {
+    Paid:       [COB_COLORS[0], '#DBEAFE'],
+    Pending:    ['#F59E0B','#FFFBEB'],
+    Overdue:    ['#EF4444','#FEF2F2'],
+    Unreachable:['#F97316','#FFF7ED'],
+    Refinanced: ['#64748B','#F1F5F9']
+  };
+
+  document.getElementById('statusSummary').innerHTML = Object.entries(counts).map(([s,c])=>{
+    const [dotColor,bg]=ssColors[s];
+    return `<div class="ss-pill" style="background:${bg};border-color:${dotColor}33">
+      <div class="ss-dot" style="background:${dotColor}"></div>
+      <div class="ss-info"><div class="ss-label">${statusLabel(s)}</div><div class="ss-count" style="color:${dotColor}">${c}</div></div>
+    </div>`;
+  }).join('');
+
+  let perfHtml = '';
+  cobradores.forEach((cob,idx)=>{
+    const assigned = allDp.filter(dp=>getAssigneeCobrador(dp)===cob.id);
+    const paidOwn  = assigned.filter(dp=>dp.status==='Paid'&&!dp.special_case_cobrador_id).length;
+    const paidHelp = assigned.filter(dp=>dp.status==='Paid'&&dp.special_case_cobrador_id).length;
+    const failed   = assigned.filter(dp=>dp.status==='Overdue'||dp.status==='Unreachable').length;
+    const pending  = assigned.filter(dp=>dp.status==='Pending').length;
+    const total    = assigned.length;
+    const hitRate  = total>0?Math.round(((paidOwn+paidHelp)/total)*100):0;
+    const color    = COB_COLORS[idx%COB_COLORS.length];
+
+    perfHtml += `<div class="perf-row">
+      <div class="perf-row-header">
+        <div class="perf-name"><div class="perf-mini-avatar" style="background:${color}">${getInitials(cob.nombre)}</div>${cob.nombre}</div>
+        <div class="perf-pct">${hitRate}%</div>
+      </div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${hitRate}%"></div></div>
+      <div class="perf-breakdown">
+        <div class="pb-item"><div class="pb-dot" style="background:var(--green)"></div>${paidOwn} propio</div>
+        ${paidHelp?`<div class="pb-item"><div class="pb-dot" style="background:var(--sky)"></div>${paidHelp} con apoyo</div>`:''}
+        ${failed?`<div class="pb-item"><div class="pb-dot" style="background:var(--red)"></div>${failed} fallido</div>`:''}
+        ${pending?`<div class="pb-item"><div class="pb-dot" style="background:var(--yellow)"></div>${pending} pendiente</div>`:''}
+        <div class="pb-item" style="margin-left:auto;font-weight:700;color:var(--text-secondary)">${total} total</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('perfContainer').innerHTML = perfHtml;
+
+  const crossItems = allDp.filter(dp=>dp.special_case_cobrador_id!=null&&dp.status==='Paid');
+  if (!crossItems.length) {
+    document.getElementById('crossContainer').innerHTML=`<div class="no-data" style="padding:16px 0"><div class="no-data-text">Sin cobros cruzados</div></div>`;
+    return;
+  }
+
+  let crossHtml = `<table class="cross-table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Asignado</th><th>Cobró</th><th>Monto</th></tr></thead><tbody>`;
+  crossItems.forEach(dp=>{
+    const s=getScheduleById(dp.payment_schedule_id);
+    const c=s?getClientById(s.clienteId):null;
+    const assigned=getCobradorById(getAssigneeCobrador(dp));
+    const actual=getCobradorById(dp.special_case_cobrador_id);
+    crossHtml += `<tr>
+      <td>${dp.fecha_esperada}</td>
+      <td>${c?c.nombre:'—'}</td>
+      <td>${assigned?assigned.nombre:'—'}</td>
+      <td style="color:var(--primary);font-weight:700">${actual?actual.nombre:'—'}</td>
+      <td class="mono">${fmt(dp.monto_esperado)}</td>
+    </tr>`;
+  });
+  crossHtml += `</tbody></table>`;
+  document.getElementById('crossContainer').innerHTML = crossHtml;
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '—';
+  const [y,m,d] = dateStr.split('-');
+  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const date = new Date(dateStr+'T12:00:00');
+  return `${days[date.getDay()]} ${d} ${months[parseInt(m)-1]}`;
+}
+
+init();
+</script>
+</body>
+</html>
