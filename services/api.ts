@@ -18,9 +18,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Token vencido o inválido → limpiar sesión y volver al login
+// La API envuelve TODO en { status, message, data }. Se desenvuelve acá una
+// sola vez para que los servicios reciban el payload y nada más.
+// Ojo: `data` no suele ser el array pelado sino un objeto con la colección
+// adentro ({ total, clientes: [...] }); eso lo destraba cada servicio.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const cuerpo = response.data;
+    if (cuerpo && typeof cuerpo === "object" && "status" in cuerpo && "data" in cuerpo) {
+      response.data = cuerpo.data;
+    }
+    return response;
+  },
   (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       clearSession();

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "node lib/agregados.check.ts"
+    "check": "node lib/agregados.check.ts && node services/mapear.check.ts"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",

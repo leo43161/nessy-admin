@@ -9,6 +9,8 @@ import {
   saveDb,
   toClienteListado,
 } from "@/services/mock/db";
+import { aCliente, type FilaCliente } from "@/services/mapear";
+import { getCobradores } from "@/services/cobradores.service";
 import type {
   Cliente,
   ClienteDetalle,
@@ -34,8 +36,35 @@ export async function getClientes(filtro: FiltroClientes): Promise<ClienteListad
       .map((c) => toClienteListado(db, c));
     return delay(clientes);
   }
-  const { data } = await api.get<ClienteListado[]>("/clientes", { params: filtro });
-  return data;
+  // `/clientes` todavía no acepta filtros (tarea C.2) ni devuelve el cobrador
+  // asignado: la cartera vive en `/cliente_cobrador`, que se pide por cobrador.
+  //
+  // ponytail: una llamada por cobrador. Con la cartera actual son dos; si
+  // crecen, hace falta un endpoint que devuelva todas las asignaciones juntas
+  // (o que `/clientes` traiga el cobrador cruzado, que es lo que ya hace
+  // `/cuotas` con su LEFT JOIN agrupado).
+  const [resClientes, cobradores] = await Promise.all([
+    api.get<{ total: number; clientes: FilaCliente[] }>("/clientes"),
+    getCobradores(),
+  ]);
+
+  const carteras = await Promise.all(
+    cobradores.map(async (cob) => {
+      const { data } = await api.get<{ clientes: { id_Clientes: number }[] }>("/cliente_cobrador", {
+        params: { id_cobrador: cob.id },
+      });
+      return data.clientes.map((c) => [c.id_Clientes, cob] as const);
+    }),
+  );
+  const asignado = new Map(carteras.flat());
+
+  return resClientes.data.clientes
+    .map((f) => {
+      const cob = asignado.get(f.id_Clientes);
+      return aCliente(f, cob?.id, cob?.nombreCompleto);
+    })
+    .filter((c) => filtro.cobradorId == null || c.cobradorAsignadoId === filtro.cobradorId)
+    .filter((c) => filtro.localidadId == null || c.idLocalidad === filtro.localidadId);
 }
 
 /** Referentes del cliente: de la tabla Referentes + clientes que lo referencian */

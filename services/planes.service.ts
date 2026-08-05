@@ -1,8 +1,10 @@
 import { api, USE_MOCK } from "@/services/api";
 import { delay, getDb, nextId, saveDb } from "@/services/mock/db";
+import { cargarContexto, getHistorico } from "@/services/admin.service";
+import { aPlan, type FilaPlan } from "@/services/mapear";
 import { addDays } from "@/lib/format";
 import { esCobrado } from "@/lib/status";
-import type { FrecuenciaCuota, PlanListado, PlanPayload } from "@/types";
+import type { CobroDelDia, FrecuenciaCuota, PlanListado, PlanPayload } from "@/types";
 
 /** Días entre cuota y cuota según la frecuencia elegida */
 const DIAS_POR_FRECUENCIA: Record<FrecuenciaCuota, number> = {
@@ -57,8 +59,24 @@ export async function getPlanes(): Promise<PlanListado[]> {
     });
     return delay(planes.sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre)));
   }
-  const { data } = await api.get<PlanListado[]>("/planes");
-  return data;
+  // `/planes` no trae el nombre del cliente ni el avance de cuotas: se cruzan
+  // acá con /clientes y /cuotas, igual que el resto de las agregaciones.
+  const [res, cuotas, ctx] = await Promise.all([
+    api.get<{ total: number; planes: FilaPlan[] }>("/planes"),
+    getHistorico(),
+    cargarContexto(),
+  ]);
+
+  const porPlan = new Map<number, CobroDelDia[]>();
+  for (const c of cuotas) {
+    const acc = porPlan.get(c.planId);
+    if (acc) acc.push(c);
+    else porPlan.set(c.planId, [c]);
+  }
+
+  return res.data.planes
+    .map((f) => aPlan(f, porPlan.get(f.id_Plan_de_pagos) ?? [], ctx.clientes))
+    .sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre));
 }
 
 /**
