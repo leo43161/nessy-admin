@@ -1,0 +1,74 @@
+name: Deploy panel admin (estático) a cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Node 24: `npm run check` ejecuta TypeScript directo, sin build previo.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Los chequeos de lib/agregados.ts y services/mapear.ts. Son rápidos y
+      # cubren la traducción de la API, que es donde más fácil se rompe algo
+      # en silencio (montos que llegan como string, estados que no existen).
+      - name: Run checks
+        run: npm run check
+
+      - name: Build static site
+        run: npm run build
+        env:
+          # La app se sirve en tucucompras.com.ar/nessyadmin/, no en la raíz.
+          # Sin esto el HTML pide los assets a /_next/... (raíz del dominio),
+          # que es la carpeta de OTRO proyecto: la página carga en blanco.
+          NEXT_PUBLIC_BASE_PATH: /nessyadmin
+          # .env.local está en .gitignore, así que las variables del build
+          # tienen que venir de acá o el bundle sale apuntando al mock.
+          NEXT_PUBLIC_API_URL: https://tucucompras.com.ar/fv1
+          NEXT_PUBLIC_USE_MOCK: "false"
+
+      # Se comprime DESDE adentro de out/ para que el zip no traiga esa carpeta:
+      # al descomprimir en el servidor, el contenido tiene que quedar suelto.
+      - name: Compress build output
+        run: |
+          cd out
+          zip -r ../deploy.zip .
+
+      - name: Prepare artifact for upload
+        run: |
+          mkdir upload_dir
+          mv deploy.zip upload_dir/
+
+      - name: Deploy ZIP to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.PANEL_SERVER }}
+          username: ${{ secrets.PANEL_USERNAME }}
+          password: ${{ secrets.PANEL_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: loose # DonWeb usa certificados autofirmados en FTP
+          local-dir: ./upload_dir/
+          server-dir: /public_html/nessyadmin/
+
+      - name: Trigger unzip on server
+        run: curl --fail "https://tucucompras.com.ar/nessyadmin/extract.php?secret=${{ secrets.UNZIP_SECRET }}"
