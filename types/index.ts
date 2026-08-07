@@ -18,7 +18,7 @@ export type ClienteStatus = "Activo" | "Inactivo" | "Moroso";
 export interface Localidad {
   id: number;
   nombre: string;
-}
+} 
 
 /** Campos compartidos por Clientes / Referentes / Cobradores en la DB */
 export interface PersonaBase {
