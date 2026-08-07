@@ -27,21 +27,11 @@ import type {
 /** Orden de severidad de las cards dentro de una columna del kanban */
 const ORDEN_SEVERIDAD: Record<EstadoVisible, number> = {
   Vencido: 0,
-  Incomunicado: 1,
-  Recargo: 2,
-  Pendiente: 3,
-  Adelanto: 4,
-  Pagado: 5,
+  Pendiente: 1,
+  Pagado: 2,
 };
 
-export const ESTADOS_VISIBLES: EstadoVisible[] = [
-  "Pagado",
-  "Adelanto",
-  "Pendiente",
-  "Recargo",
-  "Vencido",
-  "Incomunicado",
-];
+export const ESTADOS_VISIBLES: EstadoVisible[] = ["Pagado", "Pendiente", "Vencido"];
 
 /**
  * Estado que se le muestra al admin. "Vencido" no existe en la DB: es
@@ -56,9 +46,11 @@ export function esApoyo(cobro: CobroDelDia): boolean {
   return cobro.cobradoPorId !== null && cobro.cobradoPorId !== cobro.cobradorAsignadoId;
 }
 
-/** No entró la plata y ya no va a entrar sola: vencido o incomunicado */
+/** No entró la plata y ya no va a entrar sola.
+ *  "Incomunicado" dejó de ser un estado de cuota (N.4): esas cuotas siguen
+ *  Pendiente y entran acá por fecha, como cualquier otra vencida. */
 function esDeficit(estado: EstadoVisible): boolean {
-  return estado === "Vencido" || estado === "Incomunicado";
+  return estado === "Vencido";
 }
 
 const sumaMontos = (cobros: CobroDelDia[]) => cobros.reduce((s, c) => s + c.montoEsperado, 0);
@@ -153,9 +145,6 @@ export function cierrePorCobrador(
       const vencidas = cobros.filter(
         (c) => c.cobradorAsignadoId === cob.id && estadoVisible(c, hoy) === "Vencido",
       );
-      const incomunicados = cobros.filter(
-        (c) => c.cobradorAsignadoId === cob.id && c.estado === "Incomunicado",
-      );
 
       return {
         cobradorId: cob.id,
@@ -166,7 +155,6 @@ export function cierrePorCobrador(
           ...propias.map((c) => fila(c, "propio")),
           ...apoyos.map((c) => fila(c, "apoyo")),
           ...vencidas.map((c) => fila(c, "vencido")),
-          ...incomunicados.map((c) => fila(c, "incomunicado")),
         ],
       };
     })

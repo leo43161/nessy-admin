@@ -1,7 +1,7 @@
 import type { ClienteStatus, EstadoVisible, PagoEstado, PlanStatus } from "@/types";
 
 /** Un pago con alguno de estos estados cuenta como cobrado */
-export const ESTADOS_COBRADOS: PagoEstado[] = ["Pagado", "Adelanto", "Recargo"];
+export const ESTADOS_COBRADOS: PagoEstado[] = ["Pagado"];
 
 export function esCobrado(estado: PagoEstado): boolean {
   return ESTADOS_COBRADOS.includes(estado);
@@ -30,9 +30,8 @@ interface EstadoMeta {
 }
 
 /**
- * Un color por estado. La maqueta tenía cinco estados en inglés; acá son
- * seis reales, así que Recargo (cobrado tarde) y Adelanto (cobrado antes)
- * se distinguen del Pagado a secas en vez de mezclarse con él.
+ * Un color por estado. Son tres: los dos que guarda la base (N.4) más
+ * "Vencido", que se deriva de la fecha y no existe como fila.
  */
 export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
   Pagado: {
@@ -43,24 +42,6 @@ export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
     dot: "bg-green-500",
     fila: "bg-green-50 dark:bg-green-950/40",
     texto: "text-green-600 dark:text-green-400",
-  },
-  Adelanto: {
-    label: "Adelanto",
-    icono: "⏫",
-    card: "bg-teal-50 border-teal-200 dark:bg-teal-950/40 dark:border-teal-900",
-    chip: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800",
-    dot: "bg-teal-500",
-    fila: "bg-teal-50 dark:bg-teal-950/40",
-    texto: "text-teal-600 dark:text-teal-400",
-  },
-  Recargo: {
-    label: "Con recargo",
-    icono: "💰",
-    card: "bg-violet-50 border-violet-200 dark:bg-violet-950/40 dark:border-violet-900",
-    chip: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
-    dot: "bg-violet-500",
-    fila: "bg-violet-50 dark:bg-violet-950/40",
-    texto: "text-violet-600 dark:text-violet-400",
   },
   Pendiente: {
     label: "Pendiente",
@@ -79,15 +60,6 @@ export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
     dot: "bg-red-500",
     fila: "bg-red-50 dark:bg-red-950/40",
     texto: "text-red-600 dark:text-red-400",
-  },
-  Incomunicado: {
-    label: "Sin contacto",
-    icono: "📵",
-    card: "bg-orange-50 border-orange-200 dark:bg-orange-950/40 dark:border-orange-900",
-    chip: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
-    dot: "bg-orange-500",
-    fila: "bg-orange-50 dark:bg-orange-950/40",
-    texto: "text-orange-600 dark:text-orange-400",
   },
 };
 

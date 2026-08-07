@@ -6,9 +6,17 @@
 //  Advertencias_y_retrasos
 // ════════════════════════════════════════════════════════════════
 
-/** Estado de un pago por realizar (Pagos_por_realizar.Estado).
- *  "Vencido" no se guarda: se deriva (Pendiente con fecha pasada). */
-export type PagoEstado = "Pendiente" | "Pagado" | "Incomunicado" | "Adelanto" | "Recargo";
+/**
+ * Estado de un pago por realizar (`Pagos_por_realizar.Estado`).
+ *
+ * Decisión N.4: manda la base. La columna solo guarda `Pendiente`, `Pagado` y
+ * `Atrasado`, y `Atrasado` se traduce a `Pendiente` al mapear porque el front
+ * deriva "Vencido" de la fecha.
+ *
+ * Los tres de la maqueta ya no viven acá: `Incomunicado` es una advertencia,
+ * `Adelanto` se deduce del monto cobrado y `Recargo` sale de una advertencia.
+ */
+export type PagoEstado = "Pendiente" | "Pagado";
 
 /** Plan_de_pagos.Status */
 export type PlanStatus = "Activo" | "Completado" | "Incumplido" | "Refinanciado";
@@ -197,11 +205,17 @@ export interface EstadoDeCuentaPlan {
   movimientos: EstadoDeCuentaMovimiento[];
 }
 
+/**
+ * `/estado_cuenta` mezcla cuotas y advertencias en la misma lista, así que un
+ * movimiento puede ser un recargo aunque una cuota no pueda serlo (N.2).
+ */
+export type MovimientoEstado = PagoEstado | "Recargo";
+
 export interface EstadoDeCuentaMovimiento {
   fecha: string;
   concepto: string;
   monto: number;
-  estado: PagoEstado;
+  estado: MovimientoEstado;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -211,7 +225,7 @@ export interface EstadoDeCuentaMovimiento {
 //    do_payments              → CobroDelDia (Pagos_por_realizar)
 //    special_case_cobrador_id → cobradoPorId ≠ cobradorAsignadoId
 //    Overdue                  → derivado: Pendiente + fecha pasada
-//    Unreachable              → Incomunicado
+//    Unreachable              → una advertencia sobre el plan, no un estado
 //    Refinanced               → PlanDePagos.status, no es estado de cuota
 // ════════════════════════════════════════════════════════════════
 
@@ -239,7 +253,7 @@ export interface BalancePeriodo {
   esperado: number;
   cobrado: number;
   pendiente: number;
-  /** Vencido + incomunicado: lo que se esperaba y no entró */
+  /** Vencido: lo que se esperaba y no entró */
   deficit: number;
   /** cobrado / esperado, en % */
   efectividad: number;
@@ -251,7 +265,7 @@ export interface LedgerItem {
   clienteNombre: string;
   telefonos: Telefono[];
   monto: number;
-  tipo: "propio" | "apoyo" | "vencido" | "incomunicado";
+  tipo: "propio" | "apoyo" | "vencido";
   /** En "apoyo": a qué cobrador se le cubrió la cuota */
   cubreA: string | null;
 }

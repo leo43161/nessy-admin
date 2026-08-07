@@ -2,11 +2,10 @@ export const APP_NAME = "NessyAdmin";
 
 // Claves de almacenamiento local. Llevan prefijo `na_` (no `gc_`) para que la
 // app del cobrador y la del admin puedan convivir en el mismo navegador
-// sin pisarse la sesión ni el mock.
+// sin pisarse la sesión.
 export const TOKEN_KEY = "na_token";
 export const USER_KEY = "na_user";
 export const RANGO_KEY = "na_rango";
-export const MOCK_DB_KEY = "na_mock_db_v1";
 
 /** Nombre de la cookie que lee proxy.ts para proteger rutas */
 export const TOKEN_COOKIE = "na_token";

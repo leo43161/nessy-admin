@@ -2,13 +2,18 @@ import axios from "axios";
 import { clearSession, getToken } from "@/lib/session";
 
 /**
- * Mientras la API esté en desarrollo los servicios usan el backend mock.
- * Cuando esté lista: definir NEXT_PUBLIC_API_URL y NEXT_PUBLIC_USE_MOCK=false.
+ * Cliente HTTP contra la API de Nessy. Es el único backend: no hay mock.
+ *
+ * NEXT_PUBLIC_API_URL sale de .env.local en desarrollo y del workflow en el
+ * deploy. Si falta, se rompe acá y no en la primera request, que es más fácil
+ * de diagnosticar que un 404 suelto.
  */
-export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  throw new Error("Falta NEXT_PUBLIC_API_URL: la app no sabe contra qué API hablar.");
+}
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: { "Content-Type": "application/json" },
 });
 

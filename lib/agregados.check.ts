@@ -63,14 +63,14 @@ function cuota(
 }
 
 // Marcos: 1 pagada, 1 pendiente futura, 1 vencida
-// Luis:   1 pagada por Diego (apoyo), 1 incomunicada
+// Luis:   1 pagada por Diego (apoyo), 1 vencida
 // Diego:  1 pagada propia
 const COBROS = [
   cuota(1, "Pagado", "2026-06-09", 10_000, 1),
   cuota(1, "Pendiente", "2026-06-15", 20_000),
   cuota(1, "Pendiente", "2026-06-05", 40_000), // pasada ⇒ Vencido
   cuota(2, "Pagado", "2026-06-09", 5_000, 3), // Diego cubrió a Luis
-  cuota(2, "Incomunicado", "2026-06-08", 7_000),
+  cuota(2, "Pendiente", "2026-06-08", 7_000), // pasada ⇒ Vencido
   cuota(3, "Pagado", "2026-06-10", 3_000, 3),
 ];
 
@@ -118,7 +118,7 @@ assert.equal(
 // La deuda sí queda del lado del asignado, aunque no la haya intentado él
 const itemsLuis = porNombre("Luis F").items;
 assert.equal(itemsLuis.length, 1);
-assert.equal(itemsLuis[0].tipo, "incomunicado");
+assert.equal(itemsLuis[0].tipo, "vencido");
 const apoyoDeDiego = porNombre("Diego P").items.find((i) => i.tipo === "apoyo")!;
 assert.equal(apoyoDeDiego.cubreA, "Luis F", "el ledger dice a quién se le cubrió");
 
@@ -143,7 +143,11 @@ assert.equal(
   COBROS.length,
   "la distribución cuenta cada cuota exactamente una vez",
 );
-assert.equal(dist.find((d) => d.estado === "Vencido")!.cantidad, 1);
+assert.equal(
+  dist.find((d) => d.estado === "Vencido")!.cantidad,
+  2,
+  "las dos pendientes con fecha pasada (Marcos y Luis)",
+);
 
 const perf = performancePorCobrador(COBROS, COBRADORES, HOY);
 assert.deepEqual(

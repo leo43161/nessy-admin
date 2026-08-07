@@ -50,7 +50,7 @@ export const restoreSession = createAsyncThunk<LoginResponse, void, { rejectValu
       clearSession();
       return rejectWithValue("Sesión expirada.");
     }
-    const valido = await authService.validateToken(token);
+    const valido = await authService.validateToken();
     if (!valido) {
       clearSession();
       return rejectWithValue("Sesión inválida.");

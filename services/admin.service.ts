@@ -1,5 +1,4 @@
-import { api, USE_MOCK } from "@/services/api";
-import { cobrosEnRango, delay, getDb, todosLosCobros } from "@/services/mock/db";
+import { api } from "@/services/api";
 import { aCliente, aCobrador, aCuota, type FilaCliente, type FilaCobrador, type FilaCuota } from "@/services/mapear";
 import type { ClienteListado, CobroDelDia, RangoFechas } from "@/types";
 
@@ -59,16 +58,10 @@ export async function getCuotasEnRango(rango: RangoFechas): Promise<CobroDelDia[
  * ningún SP la devuelve armada.
  */
 export async function getCobrosDelPeriodo(rango: RangoFechas): Promise<CobroDelDia[]> {
-  if (USE_MOCK) {
-    return delay(cobrosEnRango(getDb(), rango.desde, rango.hasta));
-  }
   return getCuotasEnRango(rango);
 }
 
 /** Histórico completo, sin filtro de fecha — lo que consume el tab Análisis. */
 export async function getHistorico(): Promise<CobroDelDia[]> {
-  if (USE_MOCK) {
-    return delay(todosLosCobros(getDb()));
-  }
   return getCuotasEnRango(RANGO_HISTORICO);
 }

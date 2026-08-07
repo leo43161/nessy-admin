@@ -24,11 +24,6 @@ const TIPO: Record<LedgerItem["tipo"], { tag: string; fila: string; monto: strin
     fila: "bg-red-50 dark:bg-red-950/40",
     monto: "text-red-600 dark:text-red-400",
   },
-  incomunicado: {
-    tag: "bg-orange-200 text-orange-900 dark:bg-orange-900 dark:text-orange-100",
-    fila: "bg-orange-50 dark:bg-orange-950/40",
-    monto: "text-orange-600 dark:text-orange-400",
-  },
 };
 
 function etiqueta(item: LedgerItem): string {
@@ -39,13 +34,11 @@ function etiqueta(item: LedgerItem): string {
       return `Apoyo→${item.cubreA}`;
     case "vencido":
       return "Vencido";
-    case "incomunicado":
-      return "Sin contacto";
   }
 }
 
 /** Deuda: no hay plata que entregar, pero sí a quién llamar */
-const CON_WHATSAPP: Array<LedgerItem["tipo"]> = ["vencido", "incomunicado"];
+const CON_WHATSAPP: Array<LedgerItem["tipo"]> = ["vencido"];
 
 export function LedgerCobrador({ cierre }: { cierre: CierreCobrador }) {
   return (

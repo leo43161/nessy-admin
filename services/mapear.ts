@@ -10,12 +10,21 @@
  * fetch y el join viven en los servicios. Su chequeo: `npm run check`.
  */
 import type {
+  Cliente,
+  ClienteDetalle,
   ClienteListado,
+  ClientePayload,
   Cobrador,
   CobroDelDia,
+  EstadoDeCuenta,
+  EstadoDeCuentaMovimiento,
+  EstadoDeCuentaPlan,
+  Nota,
   PagoEstado,
   PlanListado,
+  PlanPayload,
   PlanStatus,
+  ReferenteDeCliente,
   Telefono,
 } from "@/types";
 
@@ -121,9 +130,6 @@ export function aBooleanoNullable(v: number | null | undefined): boolean | null 
  * significa un atrasado, y así `ESTADO[...]` no recibe una clave que no
  * tiene y rompa el chip.
  *
- * ponytail: los tres estados de la maqueta (Incomunicado, Adelanto, Recargo)
- * siguen en el tipo PagoEstado y ya no pueden llegar de la API. Sacarlos es
- * la tarea N.4 y toca componentes, no solo este archivo.
  */
 export function aEstadoCuota(estado: string | null): PagoEstado {
   if (estado === "Pagado") return "Pagado";
@@ -162,6 +168,117 @@ export function aCliente(f: FilaCliente, cobradorId?: number, cobradorNombre?: s
     cobradorAsignadoId: cobradorId ?? null,
     cobradorAsignadoNombre: cobradorNombre ?? null,
   };
+}
+
+/** Fila de un referente dentro de GET /estado_cuenta */
+export interface FilaReferente {
+  id_Referentes?: number;
+  DNI: string | null;
+  Nombre_completo: string | null;
+  direccion: string | null;
+  telefonos?: string[];
+}
+
+/** Fila de GET /notas */
+export interface FilaNota {
+  id_Notes: number;
+  id_cliente: number;
+  Nota: string | null;
+  Fecha_Creacion: string | null;
+  Fecha_UltimaEdicion?: string | null;
+  cliente_nombre?: string | null;
+}
+
+/** Un movimiento de GET /estado_cuenta. Cuotas y advertencias vienen mezcladas. */
+export interface FilaMovimiento {
+  Tipo_Registro: string;
+  Plan_ID: number;
+  Plan_Nombre: string | null;
+  Plan_Status: string | null;
+  Plan_Monto_Total: string | null;
+  PPR_ID: number | null;
+  PPR_Fecha_Acordada: string | null;
+  PPR_Monto_Esperado: string | null;
+  PPR_Estado: string | null;
+  PR_Monto_Abonado: string | null;
+  PR_Concepto: string | null;
+  PR_Fecha_de_Pago: string | null;
+  Adv_Motivo: string | null;
+  Adv_Recargo: string | null;
+}
+
+/** Resumen por plan de GET /estado_cuenta (ya viene sumado por el SP) */
+export interface FilaPlanSaldo {
+  id_Plan_de_pagos: number;
+  Nombre: string | null;
+  Status: string | null;
+  Monto_total: number | string | null;
+  total_esperado: number | string | null;
+  total_abonado: number | string | null;
+  saldo_deudor: number | string | null;
+  cuotas: number;
+}
+
+/** Cuerpo de GET /estado_cuenta */
+export interface RespuestaEstadoCuenta {
+  cliente: FilaCliente;
+  telefonos: string[];
+  referentes: FilaReferente[];
+  saldo: {
+    total_esperado: number | string;
+    total_recargos: number | string;
+    total_abonado: number | string;
+    saldo_deudor: number | string;
+    cuotas: number;
+  };
+  planes: FilaPlanSaldo[];
+  movimientos: FilaMovimiento[];
+}
+
+/* ────────────── de ida: del front a la API ──────────────
+   Los endpoints de escritura reciben los nombres de la base, no los del
+   front. Mandar `dni` en vez de `DNI` no da un error de tipos: la API
+   responde "Faltan campos obligatorios". */
+
+/** Cuerpo de POST/PUT /clientes */
+export function deCliente(p: ClientePayload): Record<string, unknown> {
+  const cuerpo: Record<string, unknown> = {
+    DNI: p.dni.trim(),
+    Nombre_completo: p.nombreCompleto.trim(),
+    email: p.email,
+    direccion: p.direccion,
+    ubicacion_geografica_de_destino_de_cobro: p.ubicacionCobro,
+    id_localidad: p.idLocalidad,
+    status: p.status,
+    telefonos: p.telefonos,
+  };
+
+  // En el alta no va: el id lo devuelve la API.
+  if (p.id) cuerpo.id = p.id;
+
+  return cuerpo;
+}
+
+/** Cuerpo de POST/PUT /planes */
+export function dePlan(p: PlanPayload, fechas?: string[]): Record<string, unknown> {
+  const cuerpo: Record<string, unknown> = {
+    id_cliente: p.idCliente,
+    Nombre: p.nombre,
+    Monto_total: p.montoTotal,
+    Status: p.status,
+  };
+
+  if (p.id) cuerpo.id = p.id;
+
+  // Solo en el alta: el POST crea el plan y su cronograma en un request.
+  if (fechas && fechas.length > 0 && p.cuotas) {
+    cuerpo.cuotas = {
+      Monto_esperado: p.montoTotal / p.cuotas.cantidad,
+      fechas,
+    };
+  }
+
+  return cuerpo;
 }
 
 export function aCobrador(f: FilaCobrador): Cobrador {
@@ -270,5 +387,148 @@ export function aPlan(
     cuotasTotales: cuotasDelPlan.length,
     cuotasCobradas: cobradas.length,
     pagado: cobradas.reduce((s, c) => s + c.montoEsperado, 0),
+  };
+}
+
+export function aReferenteDeCliente(f: FilaReferente): ReferenteDeCliente {
+  return {
+    // `tipo` distingue al garante externo (tabla Referentes) del cliente que
+    // garantiza a otro (Cliente_ClienteReferente). /estado_cuenta devuelve
+    // solo los primeros.
+    tipo: "Referente",
+    id: f.id_Referentes ?? 0,
+    dni: f.DNI ?? "",
+    nombreCompleto: f.Nombre_completo ?? "—",
+    direccion: f.direccion,
+    localidadNombre: null,
+    telefonos: aTelefonos(f.telefonos),
+  };
+}
+
+export function aNota(f: FilaNota): Nota {
+  return {
+    id: f.id_Notes,
+    idCliente: f.id_cliente,
+    nota: f.Nota ?? "",
+    fechaDeCreacion: (f.Fecha_Creacion ?? "").slice(0, 10),
+    fechaUltimaEdicion: f.Fecha_UltimaEdicion ? f.Fecha_UltimaEdicion.slice(0, 10) : null,
+  };
+}
+
+/* ────────────────────────── estado de cuenta ────────────────────────── */
+
+/**
+ * `/estado_cuenta` devuelve la ficha entera en un request: cliente, teléfonos,
+ * referentes, saldo ya calculado, resumen por plan y movimientos.
+ *
+ * Los movimientos mezclan dos cosas en la misma lista, distinguidas por
+ * `Tipo_Registro`: las cuotas y las advertencias. Una advertencia llega con
+ * `PPR_Monto_Esperado = 0` y el recargo en `Adv_Recargo` — no está dentro de
+ * ninguna cuota (decisión N.2), y la API ya la sumó al saldo_deudor.
+ */
+export function aEstadoDeCuenta(r: RespuestaEstadoCuenta, hoy: string): EstadoDeCuenta {
+  const planes = r.planes.map<EstadoDeCuentaPlan>((p) => {
+    const movs = r.movimientos.filter((m) => m.Plan_ID === p.id_Plan_de_pagos);
+    const cuotas = movs.filter((m) => m.Tipo_Registro === "Cuota");
+    const pagadas = cuotas.filter((m) => m.PPR_Estado === "Pagado");
+
+    // Vencido: no pagada y con la fecha acordada ya pasada. No se guarda.
+    const vencido = cuotas
+      .filter((m) => m.PPR_Estado !== "Pagado" && (m.PPR_Fecha_Acordada ?? "") < hoy)
+      .reduce((s, m) => s + aNumero(m.PPR_Monto_Esperado), 0);
+
+    const pendientes = cuotas
+      .filter((m) => m.PPR_Estado !== "Pagado")
+      .sort((a, b) => (a.PPR_Fecha_Acordada ?? "").localeCompare(b.PPR_Fecha_Acordada ?? ""));
+
+    return {
+      planId: p.id_Plan_de_pagos,
+      nombre: p.Nombre ?? "—",
+      status: aPlanStatus(p.Status),
+      montoTotal: aNumero(p.Monto_total),
+      cuotasTotales: cuotas.length,
+      cuotasPagadas: pagadas.length,
+      pagado: aNumero(p.total_abonado),
+      pendiente: aNumero(p.saldo_deudor),
+      vencido,
+      proximaCuota: pendientes[0]
+        ? {
+            fecha: pendientes[0].PPR_Fecha_Acordada ?? "",
+            monto: aNumero(pendientes[0].PPR_Monto_Esperado),
+          }
+        : null,
+      movimientos: movs.map(aMovimiento),
+    };
+  });
+
+  return {
+    clienteId: r.cliente.id_Clientes,
+    clienteNombre: r.cliente.Nombre_completo ?? "—",
+    generadoEl: hoy,
+    planes,
+    totalPagado: aNumero(r.saldo.total_abonado),
+    saldoPendiente: aNumero(r.saldo.saldo_deudor),
+    totalVencido: planes.reduce((s, p) => s + p.vencido, 0),
+  };
+}
+
+function aMovimiento(m: FilaMovimiento): EstadoDeCuentaMovimiento {
+  if (m.Tipo_Registro === "Advertencia") {
+    return {
+      fecha: m.PPR_Fecha_Acordada ?? "",
+      concepto: m.Adv_Motivo ?? "Recargo",
+      monto: aNumero(m.Adv_Recargo),
+      estado: "Recargo",
+    };
+  }
+
+  return {
+    // Si ya se cobró, lo que importa es cuándo se cobró; si no, cuándo vence.
+    fecha: (m.PR_Fecha_de_Pago ?? m.PPR_Fecha_Acordada ?? "").slice(0, 10),
+    concepto: m.PR_Concepto ?? "Cuota",
+    monto: aNumero(m.PR_Monto_Abonado) || aNumero(m.PPR_Monto_Esperado),
+    estado: aEstadoCuota(m.PPR_Estado),
+  };
+}
+
+/**
+ * Ficha completa del cliente para el modal de gestión.
+ *
+ * Se arma con dos respuestas: `/clientes?id=N` da los datos personales y la
+ * localidad, y `/estado_cuenta?id_cliente=N` da teléfonos, referentes, saldo y
+ * movimientos en un solo request.
+ */
+export function aClienteDetalle(
+  fila: FilaCliente,
+  estado: RespuestaEstadoCuenta,
+  notas: Nota[],
+  cobradorNombre: string | null,
+  hoy: string,
+): ClienteDetalle {
+  const cliente: Cliente = {
+    id: fila.id_Clientes,
+    dni: fila.DNI ?? "",
+    nombreCompleto: fila.Nombre_completo ?? "—",
+    email: fila.email,
+    codigoPostal: fila.codigo_postal,
+    direccion: fila.direccion,
+    casaODeptoDirecc1: fila.casa_o_dpt_direcc_1,
+    direccionLaboralOAlternativa: fila.direccion_laboral_o_alternativa,
+    casaODeptoDirecc2: fila.casa_o_dpt_direcc_2,
+    img: fila.img,
+    fechaDeNacimiento: fila.fecha_de_nacimiento,
+    idLocalidad: fila.id_localidad,
+    ubicacionCobro: fila.ubicacion_geografica_de_destino_de_cobro,
+    status: fila.status === "Inactivo" || fila.status === "Moroso" ? fila.status : "Activo",
+  };
+
+  return {
+    cliente,
+    localidadNombre: fila.nombre_localidad,
+    telefonos: aTelefonos(fila.telefonos ?? estado.telefonos),
+    cobradorAsignadoNombre: cobradorNombre,
+    referentes: estado.referentes.map(aReferenteDeCliente),
+    notas,
+    estadoDeCuenta: aEstadoDeCuenta(estado, hoy),
   };
 }

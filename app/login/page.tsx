@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { login } from "@/store/slices/auth.slice";
 import { getToken } from "@/lib/session";
-import { USE_MOCK } from "@/services/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -98,13 +97,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      {USE_MOCK && (
-        <p className="mt-8 text-center text-xs text-blue-200/50">
-          Demo — usuario: <span className="font-mono text-blue-200/80">admin</span>
-          <br />
-          (cualquier contraseña)
-        </p>
-      )}
     </div>
   );
 }

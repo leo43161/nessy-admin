@@ -1,9 +1,7 @@
-import { api, USE_MOCK } from "@/services/api";
-import { delay, getDb, nextId, saveDb } from "@/services/mock/db";
+import { api } from "@/services/api";
 import { cargarContexto, getHistorico } from "@/services/admin.service";
-import { aPlan, type FilaPlan } from "@/services/mapear";
+import { aPlan, dePlan, type FilaPlan } from "@/services/mapear";
 import { addDays } from "@/lib/format";
-import { esCobrado } from "@/lib/status";
 import type { CobroDelDia, FrecuenciaCuota, PlanListado, PlanPayload } from "@/types";
 
 /** Días entre cuota y cuota según la frecuencia elegida */
@@ -35,30 +33,6 @@ export function fechasDeCuotas(
 }
 
 export async function getPlanes(): Promise<PlanListado[]> {
-  if (USE_MOCK) {
-    const db = getDb();
-    const planes = db.planes.map<PlanListado>((p) => {
-      const cc = db.cuentasCorrientes.find((c) => c.id === p.idCuentaCorriente);
-      const cliente = db.clientes.find((c) => c.id === cc?.idCliente);
-      const rel = db.clienteCobrador.find((cc2) => cc2.idCliente === cliente?.id);
-      const cuotas = db.pagosPorRealizar.filter((pp) => pp.idPlanDePago === p.id);
-      const cobradas = cuotas.filter((c) => esCobrado(c.estado));
-
-      return {
-        id: p.id,
-        nombre: p.nombre,
-        status: p.status,
-        montoTotal: p.montoTotal,
-        clienteId: cliente?.id ?? 0,
-        clienteNombre: cliente?.nombreCompleto ?? "—",
-        cobradorNombre: db.cobradores.find((c) => c.id === rel?.idCobrador)?.nombreCompleto ?? null,
-        cuotasTotales: cuotas.length,
-        cuotasCobradas: cobradas.length,
-        pagado: cobradas.reduce((s, c) => s + c.montoEsperado, 0),
-      };
-    });
-    return delay(planes.sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre)));
-  }
   // `/planes` no trae el nombre del cliente ni el avance de cuotas: se cruzan
   // acá con /clientes y /cuotas, igual que el resto de las agregaciones.
   const [res, cuotas, ctx] = await Promise.all([
@@ -82,73 +56,34 @@ export async function getPlanes(): Promise<PlanListado[]> {
 /**
  * Alta o edición de un plan.
  *
- * En el alta genera además las cuotas (`Pagos_por_realizar`). Contra la API
- * real son dos llamadas, igual que el alta de cliente con sus teléfonos:
- * `sp_Crear-PlanDePago` devuelve el id y después `sp_Crear-PagoPorRealizar`
- * recibe el array de fechas como JSON.
+ * En el alta va también el cronograma: `POST /planes` acepta las cuotas y crea
+ * plan y vencimientos en el mismo request. En la edición no se mandan — cambiar
+ * el cronograma de un plan en curso es otra operación.
+ *
+ * La API devuelve el id, no el plan armado, así que se relee para que el store
+ * reciba la fila con el cliente y el avance de cuotas ya cruzados.
  */
 export async function guardarPlan(payload: PlanPayload): Promise<PlanListado> {
-  if (USE_MOCK) {
-    const db = getDb();
+  const fechas =
+    !payload.id && payload.cuotas
+      ? fechasDeCuotas(payload.cuotas.primeraFecha, payload.cuotas.cantidad, payload.cuotas.frecuencia)
+      : undefined;
 
-    if (payload.id) {
-      const plan = db.planes.find((p) => p.id === payload.id);
-      if (!plan) throw new Error("Plan no encontrado.");
-      plan.nombre = payload.nombre;
-      plan.montoTotal = payload.montoTotal;
-      plan.status = payload.status;
-    } else {
-      // sp_CrearClientes ya dejó creada la cuenta corriente del cliente
-      const cc = db.cuentasCorrientes.find((c) => c.idCliente === payload.idCliente);
-      if (!cc) throw new Error("El cliente no tiene cuenta corriente.");
-
-      const plan = {
-        id: nextId(db.planes),
-        idCuentaCorriente: cc.id,
-        nombre: payload.nombre,
-        montoTotal: payload.montoTotal,
-        status: payload.status,
-      };
-      db.planes.push(plan);
-
-      if (payload.cuotas && payload.cuotas.cantidad > 0) {
-        const { cantidad, primeraFecha, frecuencia } = payload.cuotas;
-        const montoCuota = Math.round(payload.montoTotal / cantidad);
-        for (const fecha of fechasDeCuotas(primeraFecha, cantidad, frecuencia)) {
-          db.pagosPorRealizar.push({
-            id: nextId(db.pagosPorRealizar),
-            idPlanDePago: plan.id,
-            fechaAcordada: fecha,
-            montoEsperado: montoCuota,
-            dentroRango: null,
-            estado: "Pendiente",
-          });
-        }
-      }
-      payload = { ...payload, id: plan.id };
-    }
-
-    saveDb();
-    const listado = (await getPlanes()).find((p) => p.id === payload.id);
-    if (!listado) throw new Error("Plan inconsistente.");
-    return listado;
-  }
+  const cuerpo = dePlan(payload, fechas);
 
   const { data } = payload.id
-    ? await api.put<PlanListado>("/planes", payload)
-    : await api.post<PlanListado>("/planes", payload);
-  return data;
+    ? await api.put<{ id_Plan_de_pagos: number }>("/planes", cuerpo)
+    : await api.post<{ id_Plan_de_pagos: number }>("/planes", cuerpo);
+
+  const planes = await getPlanes();
+  const guardado = planes.find((p) => p.id === data.id_Plan_de_pagos);
+  if (!guardado) throw new Error("El plan se guardó pero no se pudo releer.");
+
+  return guardado;
 }
 
 /** Baja lógica: Activo = 0. Nunca se borra (el historial de pagos queda). */
 export async function eliminarPlan(id: number): Promise<number> {
-  if (USE_MOCK) {
-    const db = getDb();
-    db.planes = db.planes.filter((p) => p.id !== id);
-    db.pagosPorRealizar = db.pagosPorRealizar.filter((pp) => pp.idPlanDePago !== id);
-    saveDb();
-    return delay(id, 200);
-  }
   await api.delete("/planes", { data: { id } });
   return id;
 }
