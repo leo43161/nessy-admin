@@ -42,6 +42,16 @@ api.interceptors.response.use(
         window.location.href = "/login";
       }
     }
+
+    // La API explica el problema; axios solo sabe el número. Se pisa el mensaje
+    // acá, una vez, para que los slices sigan usando `err.message` y muestren
+    // "Faltan campos obligatorios: DNI" en vez de "Request failed with status
+    // code 400", que no dice qué campo ni manda a mirar el lugar correcto.
+    if (axios.isAxiosError(error)) {
+      const delApi = (error.response?.data as { message?: string } | undefined)?.message;
+      if (delApi) error.message = delApi;
+    }
+
     return Promise.reject(error);
   },
 );
