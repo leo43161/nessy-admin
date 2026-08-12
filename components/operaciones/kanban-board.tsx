@@ -6,7 +6,7 @@ import { fmtMoney } from "@/lib/format";
 import { ESTADOS_VISIBLES } from "@/lib/agregados";
 import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { CuotaCard } from "@/components/operaciones/cuota-card";
-import type { ColumnaCobrador } from "@/types";
+import type { CobroDelDia, ColumnaCobrador } from "@/types";
 
 /**
  * Kanban de cuotas: una columna por cobrador, scroll horizontal con snap.
@@ -16,10 +16,13 @@ export function KanbanBoard({
   columnas,
   hoy,
   onSeleccionar,
+  onReclamar,
 }: {
   columnas: ColumnaCobrador[];
   hoy: string;
   onSeleccionar?: (cobroId: number) => void;
+  /** Vencidas: abre el mensaje de atraso con plantilla */
+  onReclamar?: (cobro: CobroDelDia) => void;
 }) {
   return (
     <div className="scrollbar-thin flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pt-1 pb-4">
@@ -61,6 +64,7 @@ export function KanbanBoard({
                 cobro={cobro}
                 hoy={hoy}
                 onClick={onSeleccionar ? () => onSeleccionar(cobro.cliente.id) : undefined}
+                onReclamar={onReclamar ? () => onReclamar(cobro) : undefined}
               />
             ))}
           </div>

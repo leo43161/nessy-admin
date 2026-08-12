@@ -20,6 +20,9 @@ const CENTRO: Punto = { lat: -26.8241, lon: -65.2226 };
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const ESPERA_MS = 800;
 
+/** Nivel de calle: se distinguen las puertas de una cuadra */
+const ZOOM_PIN = 18;
+
 interface MapaCobroProps {
   /** "lat,lon" o null */
   valor: string | null;
@@ -46,9 +49,12 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
   const [direccion, setDireccion] = useState("");
   const [buscando, setBuscando] = useState(false);
 
-  /** Guarda el punto y trae la dirección que le corresponde */
+  /** Guarda el punto, lo centra con zoom y trae la dirección que le corresponde */
   const fijar = (p: Punto) => {
     onChange(formatearPunto(p));
+    // Acercar al soltar: el pin queda al medio y a nivel de calle, así se ve
+    // en qué puerta cayó. Nunca aleja, para no deshacer el zoom manual.
+    mapa.current?.flyTo([p.lat, p.lon], Math.max(mapa.current.getZoom(), ZOOM_PIN));
     if (temporizador.current) clearTimeout(temporizador.current);
     temporizador.current = setTimeout(() => geocodificarInverso(p), ESPERA_MS);
   };
@@ -87,7 +93,7 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
 
       const p = { lat: Number(hit.lat), lon: Number(hit.lon) };
       pin.current?.setLatLng([p.lat, p.lon]);
-      mapa.current?.setView([p.lat, p.lon], 17);
+      mapa.current?.flyTo([p.lat, p.lon], ZOOM_PIN);
       onChange(formatearPunto(p));
     } catch {
       // idem: sin resultado el pin se queda donde estaba
@@ -108,7 +114,7 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
 
       const inicial = parsearPunto(valor);
       const centro = inicial ?? CENTRO;
-      const m = L.map(contenedor.current).setView([centro.lat, centro.lon], inicial ? 17 : 13);
+      const m = L.map(contenedor.current).setView([centro.lat, centro.lon], inicial ? ZOOM_PIN : 13);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap",

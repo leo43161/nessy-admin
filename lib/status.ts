@@ -66,7 +66,6 @@ export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
 export const CLIENTE_STATUS_BADGE: Record<ClienteStatus, string> = {
   Activo: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
   Inactivo: "bg-muted text-muted-foreground",
-  Moroso: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
 export const PLAN_STATUS_BADGE: Record<PlanStatus, string> = {
@@ -78,4 +77,3 @@ export const PLAN_STATUS_BADGE: Record<PlanStatus, string> = {
 
 export const PLAN_STATUSES: PlanStatus[] = ["Activo", "Completado", "Incumplido", "Refinanciado"];
 
-export const CLIENTE_STATUSES: ClienteStatus[] = ["Activo", "Inactivo", "Moroso"];

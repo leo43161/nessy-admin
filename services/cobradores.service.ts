@@ -8,6 +8,14 @@ export async function getCobradores(): Promise<Cobrador[]> {
   return data.cobradores.map(aCobrador);
 }
 
+/** Métodos de pago (para registrar un cobro) */
+export async function getMetodosDePago(): Promise<Localidad[]> {
+  const { data } = await api.get<{ total: number; metodos_pago: Localidad[] }>(
+    "/catalogos/metodos_pago",
+  );
+  return data.metodos_pago;
+}
+
 /** Localidades y regiones (para los filtros) */
 export async function getLocalidades(): Promise<Localidad[]> {
   // Los catálogos quedaron bajo /catalogos, no en /localidades: son dos

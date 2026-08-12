@@ -14,6 +14,7 @@ import type {
   ClienteListado,
   ClientePayload,
   FiltroClientes,
+  Nota,
 } from "@/types";
 
 /**
@@ -107,11 +108,12 @@ export async function guardarCliente(payload: ClientePayload): Promise<ClienteLi
   const id = data.id_Clientes;
 
   // La asignación de cobrador no es parte de /clientes: vive en su endpoint.
+  //
+  // /asignar y no POST /cliente_cobrador: el POST agrega y no saca, así que al
+  // cambiarle el cobrador el cliente quedaba activo en las dos carteras y le
+  // aparecía a los dos cobradores. /asignar deja una sola asignación viva.
   if (payload.cobradorId != null) {
-    await api.post("/cliente_cobrador", {
-      id_cobrador: payload.cobradorId,
-      clientes: [id],
-    });
+    await asignarCobrador(id, payload.cobradorId);
   }
 
   const clientes = await getClientes({ cobradorId: null, localidadId: null });
@@ -119,6 +121,33 @@ export async function guardarCliente(payload: ClientePayload): Promise<ClienteLi
   if (!guardado) throw new Error("El cliente se guardó pero no se pudo releer.");
 
   return guardado;
+}
+
+/**
+ * Notas de un cliente.
+ *
+ * Van en todos los modales del cliente: son el contexto que explica por qué
+ * ese cliente está como está. `getClienteDetalle` ya las trae, así que esto es
+ * para los modales que no cargan la ficha entera.
+ */
+export async function getNotasDeCliente(clienteId: number): Promise<Nota[]> {
+  const { data } = await api.get<{ total: number; notas: FilaNota[] }>("/notas", {
+    params: { id_cliente: clienteId },
+  });
+  return data.notas.map(aNota);
+}
+
+/**
+ * Cambia el cobrador de un cliente.
+ *
+ * Un cliente tiene un solo cobrador: el endpoint lo saca del que lo tenía y lo
+ * pone en el nuevo en una sola operación, sin pasar por "sin cobrador".
+ */
+export async function asignarCobrador(idCliente: number, idCobrador: number): Promise<void> {
+  await api.post("/cliente_cobrador/asignar", {
+    id_cliente: idCliente,
+    id_cobrador: idCobrador,
+  });
 }
 
 /** Baja lógica (`Activo = 0`). La API no borra nunca. */

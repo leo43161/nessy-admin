@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { SectionHeader } from "@/components/shared/section-header";
 import { ClienteFormDialog } from "@/components/gestion/cliente-form-dialog";
+import { ClienteDetailDialog } from "@/components/gestion/cliente-detail-dialog";
 import { cn } from "@/lib/utils";
 import { CLIENTE_STATUS_BADGE } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -33,6 +34,8 @@ export default function GestionClientesPage() {
   const [editando, setEditando] = useState<ClienteListado | null>(null);
   const [formAbierto, setFormAbierto] = useState(false);
   const [aEliminar, setAEliminar] = useState<ClienteListado | null>(null);
+  const [fichaId, setFichaId] = useState<number | null>(null);
+  const [fichaAbierta, setFichaAbierta] = useState(false);
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchClientes({ cobradorId: null, localidadId: null }));
@@ -101,7 +104,16 @@ export default function GestionClientesPage() {
             >
               <InitialsAvatar nombre={cliente.nombreCompleto} size="md" />
 
-              <div className="min-w-0 flex-1">
+              {/* Tocar la card abre la ficha completa. Los dos botones de la
+                  derecha son atajos y quedan fuera del área clickeable. */}
+              <button
+                type="button"
+                className="min-w-0 flex-1 cursor-pointer text-left"
+                onClick={() => {
+                  setFichaId(cliente.id);
+                  setFichaAbierta(true);
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 truncate text-sm font-bold">
                     {cliente.nombreCompleto}
@@ -121,7 +133,7 @@ export default function GestionClientesPage() {
                 <div className="truncate text-[0.68rem] text-muted-foreground">
                   Cobra: {cliente.cobradorAsignadoNombre ?? "sin asignar"}
                 </div>
-              </div>
+              </button>
 
               <div className="flex shrink-0 gap-1">
                 <Button
@@ -147,6 +159,8 @@ export default function GestionClientesPage() {
       </div>
 
       <ClienteFormDialog cliente={editando} open={formAbierto} onOpenChange={setFormAbierto} />
+
+      <ClienteDetailDialog clienteId={fichaId} open={fichaAbierta} onOpenChange={setFichaAbierta} />
 
       <AlertDialog open={aEliminar !== null} onOpenChange={(o) => !o && setAEliminar(null)}>
         <AlertDialogContent>

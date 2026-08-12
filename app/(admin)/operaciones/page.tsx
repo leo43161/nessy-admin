@@ -6,12 +6,15 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { CountBadge, SectionHeader } from "@/components/shared/section-header";
 import { KanbanBoard } from "@/components/operaciones/kanban-board";
 import { ClienteDetailDialog } from "@/components/gestion/cliente-detail-dialog";
+import { MensajeAtrasoDialog } from "@/components/operaciones/mensaje-atraso-dialog";
+import type { CobroDelDia } from "@/types";
 import { columnasPorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
 
 export default function OperacionesPage() {
   const { cobros, cobradores, hoy, cargando, error, etiquetaRango } = usePeriodo();
   const [clienteId, setClienteId] = useState<number | null>(null);
+  const [cobroAReclamar, setCobroAReclamar] = useState<CobroDelDia | null>(null);
 
   const columnas = useMemo(
     () => columnasPorCobrador(cobros, cobradores, hoy),
@@ -43,7 +46,12 @@ export default function OperacionesPage() {
           <p className="px-4 pb-1.5 text-xs font-medium text-muted-foreground">
             ← Deslizá entre cobradores →
           </p>
-          <KanbanBoard columnas={columnas} hoy={hoy} onSeleccionar={setClienteId} />
+          <KanbanBoard
+            columnas={columnas}
+            hoy={hoy}
+            onSeleccionar={setClienteId}
+            onReclamar={setCobroAReclamar}
+          />
         </>
       )}
 
@@ -51,6 +59,12 @@ export default function OperacionesPage() {
         clienteId={clienteId}
         open={clienteId !== null}
         onOpenChange={(abierto) => !abierto && setClienteId(null)}
+      />
+
+      <MensajeAtrasoDialog
+        cobro={cobroAReclamar}
+        open={cobroAReclamar !== null}
+        onOpenChange={(abierto) => !abierto && setCobroAReclamar(null)}
       />
     </>
   );

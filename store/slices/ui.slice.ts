@@ -62,6 +62,13 @@ const uiSlice = createSlice({
       persistir(state);
     },
 
+    /** Un período entero de una: "esta semana", "el mes pasado"… */
+    setRango(state, action: PayloadAction<RangoFechas>) {
+      state.rango = action.payload;
+      state.modo = action.payload.desde === action.payload.hasta ? "dia" : "rango";
+      persistir(state);
+    },
+
     setHasta(state, action: PayloadAction<string>) {
       if (!state.rango) return;
       const hasta = action.payload;
@@ -74,5 +81,5 @@ const uiSlice = createSlice({
   },
 });
 
-export const { initRango, setModo, setDesde, setHasta } = uiSlice.actions;
+export const { initRango, setModo, setRango, setDesde, setHasta } = uiSlice.actions;
 export default uiSlice.reducer;

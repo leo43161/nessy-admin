@@ -159,7 +159,7 @@ export function aCliente(f: FilaCliente, cobradorId?: number, cobradorNombre?: s
     dni: f.DNI ?? "",
     nombreCompleto: f.Nombre_completo ?? "—",
     // La columna existe pero en producción está en NULL para todas las filas.
-    status: f.status === "Inactivo" || f.status === "Moroso" ? f.status : "Activo",
+    status: f.status === "Inactivo" ? "Inactivo" : "Activo",
     direccion: f.direccion,
     ubicacionCobro: f.ubicacion_geografica_de_destino_de_cobro,
     idLocalidad: f.id_localidad,
@@ -173,6 +173,8 @@ export function aCliente(f: FilaCliente, cobradorId?: number, cobradorNombre?: s
 /** Fila de un referente dentro de GET /estado_cuenta */
 export interface FilaReferente {
   id_Referentes?: number;
+  /** /cli_cliente devuelve filas de `Clientes`, con la PK de esa tabla */
+  id_Clientes?: number;
   DNI: string | null;
   Nombre_completo: string | null;
   direccion: string | null;
@@ -249,18 +251,22 @@ export function deCliente(p: ClientePayload): Record<string, unknown> {
     direccion: p.direccion,
     ubicacion_geografica_de_destino_de_cobro: p.ubicacionCobro,
     id_localidad: p.idLocalidad,
-    status: p.status,
     telefonos: p.telefonos,
   };
 
   // En el alta no va: el id lo devuelve la API.
   if (p.id) cuerpo.id = p.id;
 
+  // `status` no se edita desde el panel (la baja del cliente es `Activo`), pero
+  // en el alta el SP inserta lo que reciba: sin esto la fila nace en NULL.
+  // En la edición se omite y `COALESCE` la deja como estaba.
+  if (!p.id) cuerpo.status = "Activo";
+
   return cuerpo;
 }
 
 /** Cuerpo de POST/PUT /planes */
-export function dePlan(p: PlanPayload, fechas?: string[]): Record<string, unknown> {
+export function dePlan(p: PlanPayload): Record<string, unknown> {
   const cuerpo: Record<string, unknown> = {
     id_cliente: p.idCliente,
     Nombre: p.nombre,
@@ -271,10 +277,14 @@ export function dePlan(p: PlanPayload, fechas?: string[]): Record<string, unknow
   if (p.id) cuerpo.id = p.id;
 
   // Solo en el alta: el POST crea el plan y su cronograma en un request.
-  if (fechas && fechas.length > 0 && p.cuotas) {
+  //
+  // Van los montos uno por uno y no un `Monto_esperado` único: con todas las
+  // cuotas iguales el cronograma no cierra en el total cuando la división no es
+  // exacta (25.000 en 12 da 2.083,3333). La última absorbe la diferencia.
+  if (p.cuotas && p.cuotas.length > 0) {
     cuerpo.cuotas = {
-      Monto_esperado: p.montoTotal / p.cuotas.cantidad,
-      fechas,
+      fechas: p.cuotas.map((c) => c.fecha),
+      montos: p.cuotas.map((c) => c.monto),
     };
   }
 
@@ -451,8 +461,11 @@ export function aEstadoDeCuenta(r: RespuestaEstadoCuenta, hoy: string): EstadoDe
       pagado: aNumero(p.total_abonado),
       pendiente: aNumero(p.saldo_deudor),
       vencido,
+      // El id de la cuota viene en la misma respuesta y es lo que necesita
+      // POST /cobros: sin él, cobrar desde el panel pediría otro request.
       proximaCuota: pendientes[0]
         ? {
+            cuotaId: pendientes[0].PPR_ID,
             fecha: pendientes[0].PPR_Fecha_Acordada ?? "",
             monto: aNumero(pendientes[0].PPR_Monto_Esperado),
           }
@@ -519,7 +532,7 @@ export function aClienteDetalle(
     fechaDeNacimiento: fila.fecha_de_nacimiento,
     idLocalidad: fila.id_localidad,
     ubicacionCobro: fila.ubicacion_geografica_de_destino_de_cobro,
-    status: fila.status === "Inactivo" || fila.status === "Moroso" ? fila.status : "Activo",
+    status: fila.status === "Inactivo" ? "Inactivo" : "Activo",
   };
 
   return {

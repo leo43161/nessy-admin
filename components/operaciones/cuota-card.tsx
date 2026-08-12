@@ -14,10 +14,13 @@ export function CuotaCard({
   cobro,
   hoy,
   onClick,
+  onReclamar,
 }: {
   cobro: CobroDelDia;
   hoy: string;
   onClick?: () => void;
+  /** Solo para las vencidas: abre el mensaje de atraso con plantilla */
+  onReclamar?: () => void;
 }) {
   const estado = estadoVisible(cobro, hoy);
   const meta = ESTADO[estado];
@@ -60,11 +63,30 @@ export function CuotaCard({
           </div>
         </div>
 
-        <WhatsappButton telefonos={cobro.cliente.telefonos}>
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#25D366] transition-transform active:scale-90">
-            <MessageCircle className="size-4 text-white" />
-          </span>
-        </WhatsappButton>
+        {/* Vencida: el botón deja de ser "abrir el chat" y pasa a ser un
+            reclamo con plantilla. Va en rojo y con texto porque es la acción
+            que hay que hacer, no una más de las disponibles. */}
+        {estado === "Vencido" && onReclamar ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              // La card entera es clickeable: sin esto se abriría también la
+              // ficha del cliente detrás del diálogo.
+              e.stopPropagation();
+              onReclamar();
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-md bg-red-600 px-2 py-1.5 text-[0.65rem] font-bold text-white transition-transform active:scale-90"
+          >
+            <MessageCircle className="size-3.5" />
+            Reclamar
+          </button>
+        ) : (
+          <WhatsappButton telefonos={cobro.cliente.telefonos}>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#25D366] transition-transform active:scale-90">
+              <MessageCircle className="size-4 text-white" />
+            </span>
+          </WhatsappButton>
+        )}
       </div>
     </div>
   );

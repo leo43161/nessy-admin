@@ -1,36 +1,12 @@
 import { api } from "@/services/api";
 import { cargarContexto, getHistorico } from "@/services/admin.service";
 import { aPlan, dePlan, type FilaPlan } from "@/services/mapear";
-import { addDays } from "@/lib/format";
-import type { CobroDelDia, FrecuenciaCuota, PlanListado, PlanPayload } from "@/types";
+import type { CobroDelDia, PlanListado, PlanPayload } from "@/types";
 
-/** Días entre cuota y cuota según la frecuencia elegida */
-const DIAS_POR_FRECUENCIA: Record<FrecuenciaCuota, number> = {
-  Diaria: 1,
-  Semanal: 7,
-  Quincenal: 15,
-  Mensual: 30,
-};
-
-export const FRECUENCIAS: FrecuenciaCuota[] = ["Diaria", "Semanal", "Quincenal", "Mensual"];
-
-/**
- * Fechas de vencimiento de las cuotas de un plan.
- *
- * ponytail: "Mensual" avanza de a 30 días corridos, no al mismo día del mes
- * siguiente. Si el negocio necesita "todos los días 10", cambiar acá por
- * aritmética de calendario. Tampoco corre las fechas que caen en día no
- * laborable — eso lo resuelve `sp_VerFechasNoLaborales` (tarea 2.6) y hay
- * que aplicarlo cuando el endpoint exista.
- */
-export function fechasDeCuotas(
-  primeraFecha: string,
-  cantidad: number,
-  frecuencia: FrecuenciaCuota,
-): string[] {
-  const paso = DIAS_POR_FRECUENCIA[frecuencia];
-  return Array.from({ length: cantidad }, (_, i) => addDays(i * paso, primeraFecha));
-}
+// El armado del cronograma —interés, reparto de cuotas y fechas— vive en
+// `lib/cuotas.ts`, que es puro y tiene su chequeo. Acá solo quedan los
+// requests. ponytail: las fechas que caen en día no laborable no se corren;
+// eso lo resuelve `sp_VerFechasNoLaborales` cuando el endpoint exista.
 
 export async function getPlanes(): Promise<PlanListado[]> {
   // `/planes` no trae el nombre del cliente ni el avance de cuotas: se cruzan
@@ -64,12 +40,9 @@ export async function getPlanes(): Promise<PlanListado[]> {
  * reciba la fila con el cliente y el avance de cuotas ya cruzados.
  */
 export async function guardarPlan(payload: PlanPayload): Promise<PlanListado> {
-  const fechas =
-    !payload.id && payload.cuotas
-      ? fechasDeCuotas(payload.cuotas.primeraFecha, payload.cuotas.cantidad, payload.cuotas.frecuencia)
-      : undefined;
-
-  const cuerpo = dePlan(payload, fechas);
+  // En la edición el cronograma no se toca: las cuotas ya existen y varias
+  // pueden estar cobradas.
+  const cuerpo = dePlan(payload.id ? { ...payload, cuotas: undefined } : payload);
 
   const { data } = payload.id
     ? await api.put<{ id_Plan_de_pagos: number }>("/planes", cuerpo)

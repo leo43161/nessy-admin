@@ -21,7 +21,13 @@ export type PagoEstado = "Pendiente" | "Pagado";
 /** Plan_de_pagos.Status */
 export type PlanStatus = "Activo" | "Completado" | "Incumplido" | "Refinanciado";
 
-export type ClienteStatus = "Activo" | "Inactivo" | "Moroso";
+/**
+ * `Clientes.status`. **No es la baja del cliente** — eso es `Clientes.Activo`,
+ * que maneja el borrado lógico (`DELETE /clientes`). Esta columna es una
+ * etiqueta libre que la base trae en NULL para todas las filas y que el panel
+ * solo muestra: no se edita desde el formulario.
+ */
+export type ClienteStatus = "Activo" | "Inactivo";
 
 export interface Localidad {
   id: number;
@@ -200,7 +206,8 @@ export interface EstadoDeCuentaPlan {
   pagado: number;
   pendiente: number;
   vencido: number;
-  proximaCuota: { fecha: string; monto: number } | null;
+  /** `cuotaId` es `Pagos_por_realizar.id`: es lo que recibe POST /cobros */
+  proximaCuota: { cuotaId: number | null; fecha: string; monto: number } | null;
   /** Últimos movimientos del plan (cuotas con estado registrado) */
   movimientos: EstadoDeCuentaMovimiento[];
 }
@@ -321,7 +328,6 @@ export interface ClientePayload {
   direccion: string | null;
   ubicacionCobro: string | null;
   idLocalidad: number | null;
-  status: ClienteStatus;
   /** Reemplaza la lista completa, igual que sp_EditarTelefonos */
   telefonos: string[];
   /** Cobrador asignado en Cliente_Cobrador */
@@ -333,20 +339,21 @@ export interface PlanPayload {
   id?: number;
   idCliente: number;
   nombre: string;
+  /**
+   * Lo que el cliente debe: capital **más** interés.
+   *
+   * `Plan_de_pagos` no tiene columna de tasa ni de capital, así que el interés
+   * se aplica antes de guardar y solo queda el total. El desglose no se
+   * registra en ningún lado (decisión del dueño del proyecto).
+   */
   montoTotal: number;
   status: PlanStatus;
-  /** Solo en alta: genera las cuotas de Pagos_por_realizar */
-  cuotas?: {
-    cantidad: number;
-    /** Fecha de la primera cuota (YYYY-MM-DD) */
-    primeraFecha: string;
-    frecuencia: FrecuenciaCuota;
-  };
+  /** Solo en alta: el cronograma ya calculado, cuota por cuota */
+  cuotas?: { fecha: string; monto: number }[];
 }
 
 /** Cada cuánto vence una cuota. Se traduce a un array de fechas para
  *  `sp_Crear-PagoPorRealizar`, que las recibe como JSON. */
-export type FrecuenciaCuota = "Diaria" | "Semanal" | "Quincenal" | "Mensual";
 
 /** Plan con sus totales, para el listado de gestión */
 export interface PlanListado {

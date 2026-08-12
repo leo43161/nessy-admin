@@ -58,6 +58,19 @@ export function formatDayLabel(iso: string | null | undefined): string {
 }
 
 /** Link de WhatsApp con mensaje opcional prellenado */
+/**
+ * Link al mapa del punto de cobro, o null si no son coordenadas.
+ *
+ * `ubicacion_geografica_de_destino_de_cobro` guarda "lat,lon" — es de ahí que
+ * los SP de cobro sacan el punto para el control de rango. Las fichas viejas
+ * tienen texto libre en esa columna y devuelven null.
+ */
+export function mapaUrl(ubicacion: string | null | undefined): string | null {
+  const v = ubicacion?.trim();
+  if (!v || !/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(v)) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(v.replace(/\s/g, ""))}`;
+}
+
 export function whatsappUrl(telefono: string, mensaje?: string): string {
   const nro = telefono.replace(/\D/g, "");
   const text = mensaje ? `?text=${encodeURIComponent(mensaje)}` : "";

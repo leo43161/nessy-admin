@@ -1,7 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
-import { Loader2, MapPin, Phone, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import {
+  Copy,
+  FileWarning,
+  Loader2,
+  MapPinned,
+  MessageCircle,
+  Pencil,
+  Phone,
+  Plus,
+  ReceiptText,
+  User,
+  Users,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,18 +22,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
+import { ClienteFormDialog } from "@/components/gestion/cliente-form-dialog";
+import { PlanFormDialog } from "@/components/gestion/plan-form-dialog";
+import { ReferentesEditor } from "@/components/gestion/referentes-editor";
+import { CobroDialog, type CuotaACobrar } from "@/components/gestion/cobro-dialog";
 import { cn } from "@/lib/utils";
-import { fmtMoney, formatFecha } from "@/lib/format";
-import { CLIENTE_STATUS_BADGE, PLAN_STATUS_BADGE } from "@/lib/status";
+import { fmtMoney, formatFecha, mapaUrl } from "@/lib/format";
+import { estadoDeCuentaToText, LEYENDA_RECLAMO, reclamoToText } from "@/lib/estado-cuenta";
+import { enviarEstadoCuenta } from "@/lib/compartir";
+import { PLAN_STATUS_BADGE } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { clearDetalle, fetchClienteDetalle } from "@/store/slices/clientes.slice";
+import { clearDetalle, fetchClienteDetalle, fetchClientes } from "@/store/slices/clientes.slice";
+import { asignarCobrador } from "@/services/clientes.service";
+import type { ClienteListado, EstadoDeCuentaPlan, PlanListado } from "@/types";
 
 /**
- * Ficha del cliente en solo lectura: quién es, quién responde por él y cómo
- * viene cada plan. Se abre desde una card del kanban.
+ * Ficha completa del cliente: quién es, quién responde por él, cómo viene cada
+ * financiación, y todo lo que se puede hacer sobre él sin salir de acá —cobrar,
+ * crear o editar planes, cambiar el cobrador, tocar los referentes y mandarle
+ * el estado de cuenta.
+ *
+ * En celular ocupa la pantalla entera: el panel se usa desde el teléfono y un
+ * modal chico con scroll interno es incómodo de manejar con una mano.
  */
 export function ClienteDetailDialog({
   clienteId,
@@ -33,154 +59,423 @@ export function ClienteDetailDialog({
 }) {
   const dispatch = useAppDispatch();
   const { data, status } = useAppSelector((s) => s.clientes.detalle);
+  const clientes = useAppSelector((s) => s.clientes.items);
+  const cobradores = useAppSelector((s) => s.admin.cobradores.items);
+
+  const [editandoCliente, setEditandoCliente] = useState(false);
+  const [referentesAbierto, setReferentesAbierto] = useState(false);
+  const [planEnEdicion, setPlanEnEdicion] = useState<PlanListado | null>(null);
+  const [planAbierto, setPlanAbierto] = useState(false);
+  const [cuotaACobrar, setCuotaACobrar] = useState<CuotaACobrar | null>(null);
+  const [guardandoCobrador, setGuardandoCobrador] = useState(false);
+  const [enviandoReclamo, setEnviandoReclamo] = useState(false);
 
   useEffect(() => {
     if (open && clienteId != null) dispatch(fetchClienteDetalle(clienteId));
     if (!open) dispatch(clearDetalle());
   }, [open, clienteId, dispatch]);
 
-  const cargando = status === "loading" || status === "idle";
+  const cargando = status === "loading" || status === "idle" || !data;
+
+  // El detalle no trae el id del cobrador, solo su nombre: el select necesita
+  // el id y sale de la fila del listado, que ya está en el store.
+  const enListado: ClienteListado | undefined = clientes.find((c) => c.id === clienteId);
+  const cobradorId = enListado?.cobradorAsignadoId ?? null;
+
+  const refrescar = () => {
+    if (clienteId != null) dispatch(fetchClienteDetalle(clienteId));
+    dispatch(fetchClientes({ cobradorId: null, localidadId: null }));
+  };
+
+  const cambiarCobrador = async (nuevoId: number) => {
+    if (clienteId == null) return;
+    setGuardandoCobrador(true);
+    try {
+      await asignarCobrador(clienteId, nuevoId);
+      toast.success("Cobrador actualizado.");
+      refrescar();
+    } catch {
+      toast.error("No se pudo cambiar el cobrador.");
+    } finally {
+      setGuardandoCobrador(false);
+    }
+  };
+
+  const texto = data ? estadoDeCuentaToText(data.estadoDeCuenta) : "";
+
+  const copiarEstado = async () => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success("Estado de cuenta copiado.");
+    } catch {
+      toast.error("No se pudo copiar.");
+    }
+  };
+
+  /**
+   * Reclamo: el único envío con el PDF adjunto.
+   *
+   * En el celular `navigator.share()` abre la hoja de compartir con el archivo
+   * y ahí se elige el chat; en escritorio no existe compartir archivos, así que
+   * baja el PDF y abre WhatsApp con el texto (dos pasos, no hay otra).
+   */
+  const enviarReclamo = async () => {
+    if (!data) return;
+    setEnviandoReclamo(true);
+    try {
+      const { archivoEstadoCuentaPdf, descargarArchivo } = await import(
+        "@/lib/pdf/estado-cuenta-pdf"
+      );
+      const archivo = await archivoEstadoCuentaPdf(
+        data.estadoDeCuenta,
+        {
+          nombreCompleto: data.cliente.nombreCompleto,
+          dni: data.cliente.dni,
+          direccion: data.cliente.direccion,
+          localidadNombre: data.localidadNombre,
+        },
+        LEYENDA_RECLAMO,
+      );
+
+      const salio = await enviarEstadoCuenta(
+        archivo,
+        reclamoToText(data.estadoDeCuenta),
+        data.telefonos[0]?.numero ?? null,
+        descargarArchivo,
+      );
+      if (salio) toast.success("Reclamo enviado.");
+    } catch {
+      toast.error("No se pudo generar el reclamo.");
+    } finally {
+      setEnviandoReclamo(false);
+    }
+  };
+
+  const abrirPlan = (plan: EstadoDeCuentaPlan | null) => {
+    if (!data) return;
+    setPlanEnEdicion(
+      plan && {
+        id: plan.planId,
+        nombre: plan.nombre,
+        status: plan.status,
+        montoTotal: plan.montoTotal,
+        clienteId: data.estadoDeCuenta.clienteId,
+        clienteNombre: data.cliente.nombreCompleto,
+        cobradorNombre: data.cobradorAsignadoNombre,
+        cuotasTotales: plan.cuotasTotales,
+        cuotasCobradas: plan.cuotasPagadas,
+        pagado: plan.pagado,
+      },
+    );
+    setPlanAbierto(true);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-        {cargando || !data ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Cargando cliente</DialogTitle>
-              <DialogDescription>Buscando la ficha completa.</DialogDescription>
-            </DialogHeader>
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="size-7 animate-spin text-primary" />
-            </div>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <InitialsAvatar nombre={data.cliente.nombreCompleto} size="md" />
-                <div className="min-w-0 text-left">
-                  <DialogTitle className="truncate">{data.cliente.nombreCompleto}</DialogTitle>
-                  <DialogDescription className="font-mono">
-                    DNI {data.cliente.dni}
-                  </DialogDescription>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
+          {cargando ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Cargando cliente</DialogTitle>
+                <DialogDescription>Buscando la ficha completa.</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="size-7 animate-spin text-primary" />
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <InitialsAvatar nombre={data.cliente.nombreCompleto} size="md" />
+                  <div className="min-w-0 text-left">
+                    <DialogTitle className="truncate">{data.cliente.nombreCompleto}</DialogTitle>
+                    <DialogDescription className="font-mono">
+                      DNI {data.cliente.dni}
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ml-auto shrink-0"
+                    aria-label="Editar datos del cliente"
+                    onClick={() => setEditandoCliente(true)}
+                  >
+                    <Pencil />
+                  </Button>
                 </div>
-                <span
-                  className={cn(
-                    "ml-auto shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-bold",
-                    CLIENTE_STATUS_BADGE[data.cliente.status],
-                  )}
-                >
-                  {data.cliente.status}
-                </span>
-              </div>
-            </DialogHeader>
+              </DialogHeader>
 
-            <dl className="space-y-1.5 text-sm">
-              <Dato icono={<MapPin className="size-3.5" />}>
-                {data.cliente.ubicacionCobro ?? data.cliente.direccion ?? "Sin dirección"}
-                {data.localidadNombre && ` · ${data.localidadNombre}`}
-              </Dato>
-              <Dato icono={<User className="size-3.5" />}>
-                Cobrador: {data.cobradorAsignadoNombre ?? "sin asignar"}
-              </Dato>
-              <Dato icono={<Phone className="size-3.5" />}>
-                <span className="flex flex-wrap items-center gap-1.5">
-                  {data.telefonos.length > 0
-                    ? data.telefonos.map((t) => (
-                        <span key={t.id} className="font-mono">
-                          {t.numero}
-                        </span>
-                      ))
-                    : "Sin teléfono"}
-                  {data.telefonos.length > 0 && <WhatsappButton telefonos={data.telefonos} />}
-                </span>
-              </Dato>
-            </dl>
-
-            <Bloque titulo="Estado de cuenta">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <Total label="Pagado" valor={data.estadoDeCuenta.totalPagado} />
-                <Total label="Pendiente" valor={data.estadoDeCuenta.saldoPendiente} />
-                <Total
-                  label="Vencido"
-                  valor={data.estadoDeCuenta.totalVencido}
-                  className="text-red-600 dark:text-red-400"
-                />
-              </div>
-            </Bloque>
-
-            <Bloque titulo={`Planes (${data.estadoDeCuenta.planes.length})`}>
-              <ul className="space-y-2">
-                {data.estadoDeCuenta.planes.map((plan) => (
-                  <li key={plan.planId} className="rounded-lg border border-border p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 truncate text-sm font-semibold">{plan.nombre}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-bold",
-                          PLAN_STATUS_BADGE[plan.status],
-                        )}
+              {/* ── Datos ── */}
+              <dl className="space-y-1.5 text-sm">
+                <Dato icono={<MapPinned className="size-3.5" />}>
+                  {data.cliente.direccion ?? "Sin dirección"}
+                  {data.localidadNombre && ` · ${data.localidadNombre}`}
+                  {mapaUrl(data.cliente.ubicacionCobro) && (
+                    <>
+                      {" · "}
+                      <a
+                        href={mapaUrl(data.cliente.ubicacionCobro)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
                       >
-                        {plan.status}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {plan.cuotasPagadas}/{plan.cuotasTotales} cuotas ·{" "}
-                      <span className="font-mono">{fmtMoney(plan.pagado)}</span> de{" "}
-                      <span className="font-mono">{fmtMoney(plan.montoTotal)}</span>
-                      {plan.proximaCuota && (
-                        <>
-                          <br />
-                          Próxima: {formatFecha(plan.proximaCuota.fecha)} ·{" "}
-                          <span className="font-mono">{fmtMoney(plan.proximaCuota.monto)}</span>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Bloque>
+                        punto de cobro
+                      </a>
+                    </>
+                  )}
+                </Dato>
+                <Dato icono={<Phone className="size-3.5" />}>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {data.telefonos.length > 0
+                      ? data.telefonos.map((t) => (
+                          <span key={t.id} className="font-mono">
+                            {t.numero}
+                          </span>
+                        ))
+                      : "Sin teléfono"}
+                    {data.telefonos.length > 0 && <WhatsappButton telefonos={data.telefonos} />}
+                  </span>
+                </Dato>
+              </dl>
 
-            {data.referentes.length > 0 && (
-              <Bloque titulo={`Referentes (${data.referentes.length})`}>
-                <ul className="space-y-1.5">
-                  {data.referentes.map((ref) => (
-                    <li
-                      key={`${ref.tipo}-${ref.id}`}
-                      className="flex items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5 text-xs"
+              {/* ── Cobrador: uno solo por cliente ── */}
+              <Bloque titulo="Cobrador">
+                <div className="flex items-center gap-2">
+                  <User className="size-3.5 shrink-0 text-muted-foreground" />
+                  <select
+                    aria-label="Cobrador asignado"
+                    value={cobradorId ?? ""}
+                    disabled={guardandoCobrador}
+                    onChange={(e) => cambiarCobrador(Number(e.target.value))}
+                    className="h-9 flex-1 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:opacity-50"
+                  >
+                    <option value="" disabled>
+                      Sin asignar
+                    </option>
+                    {cobradores.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombreCompleto}
+                      </option>
+                    ))}
+                  </select>
+                  {guardandoCobrador && <Loader2 className="size-4 animate-spin text-primary" />}
+                </div>
+              </Bloque>
+
+              {/* ── Estado de cuenta ── */}
+              <Bloque titulo="Estado de cuenta">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <Total label="Pagado" valor={data.estadoDeCuenta.totalPagado} />
+                  <Total label="Pendiente" valor={data.estadoDeCuenta.saldoPendiente} />
+                  <Total
+                    label="Vencido"
+                    valor={data.estadoDeCuenta.totalVencido}
+                    className="text-red-600 dark:text-red-400"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" size="sm" onClick={copiarEstado}>
+                    <Copy />
+                    Copiar
+                  </Button>
+                  <WhatsappButton telefonos={data.telefonos} mensaje={texto}>
+                    <Button variant="secondary" size="sm" disabled={data.telefonos.length === 0}>
+                      <MessageCircle />
+                      Estado de cuenta
+                    </Button>
+                  </WhatsappButton>
+                  {/* El reclamo solo tiene sentido con cuotas vencidas, y es el
+                      único envío que lleva el PDF adjunto. */}
+                  {data.estadoDeCuenta.totalVencido > 0 && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={enviandoReclamo || data.telefonos.length === 0}
+                      onClick={enviarReclamo}
                     >
-                      <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[0.6rem] font-bold text-primary">
-                        {ref.tipo}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-semibold">
-                        {ref.nombreCompleto}
-                      </span>
-                      {ref.telefonos.length > 0 && <WhatsappButton telefonos={ref.telefonos} />}
-                    </li>
-                  ))}
-                </ul>
+                      {enviandoReclamo ? <Loader2 className="animate-spin" /> : <FileWarning />}
+                      {enviandoReclamo ? "Generando…" : "Enviar reclamo (PDF)"}
+                    </Button>
+                  )}
+                </div>
               </Bloque>
-            )}
 
-            {data.notas.length > 0 && (
-              <Bloque titulo={`Notas (${data.notas.length})`}>
-                <ul className="space-y-1.5">
-                  {data.notas.map((nota) => (
-                    <li key={nota.id} className="rounded-lg bg-secondary px-2.5 py-2 text-xs">
-                      <p className="leading-relaxed">{nota.nota}</p>
-                      <span className="mt-1 block text-[0.65rem] text-muted-foreground">
-                        {formatFecha(nota.fechaDeCreacion)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+              {/* ── Financiaciones ── */}
+              <Bloque
+                titulo={`Financiaciones (${data.estadoDeCuenta.planes.length})`}
+                accion={
+                  <Button variant="ghost" size="sm" onClick={() => abrirPlan(null)}>
+                    <Plus />
+                    Nueva
+                  </Button>
+                }
+              >
+                {data.estadoDeCuenta.planes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Este cliente no tiene planes.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {data.estadoDeCuenta.planes.map((plan) => (
+                      <li key={plan.planId} className="rounded-lg border border-border p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate text-sm font-semibold">
+                            {plan.nombre}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-bold",
+                              PLAN_STATUS_BADGE[plan.status],
+                            )}
+                          >
+                            {plan.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {plan.cuotasPagadas}/{plan.cuotasTotales} cuotas ·{" "}
+                          <span className="font-mono">{fmtMoney(plan.pagado)}</span> de{" "}
+                          <span className="font-mono">{fmtMoney(plan.montoTotal)}</span>
+                          {plan.vencido > 0 && (
+                            <>
+                              {" · "}
+                              <span className="font-mono text-red-600 dark:text-red-400">
+                                {fmtMoney(plan.vencido)} vencido
+                              </span>
+                            </>
+                          )}
+                          {plan.proximaCuota && (
+                            <>
+                              <br />
+                              Próxima: {formatFecha(plan.proximaCuota.fecha)} ·{" "}
+                              <span className="font-mono">
+                                {fmtMoney(plan.proximaCuota.monto)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="mt-2 flex gap-1.5">
+                          <Button variant="outline" size="xs" onClick={() => abrirPlan(plan)}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                          {/* Sin cuota pendiente no hay nada que cobrar: el plan
+                              está terminado o no tiene cronograma. */}
+                          {plan.proximaCuota?.cuotaId != null && (
+                            <Button
+                              size="xs"
+                              onClick={() =>
+                                setCuotaACobrar({
+                                  cuotaId: plan.proximaCuota!.cuotaId!,
+                                  fecha: plan.proximaCuota!.fecha,
+                                  monto: plan.proximaCuota!.monto,
+                                  planNombre: plan.nombre,
+                                  clienteId: data.estadoDeCuenta.clienteId,
+                                })
+                              }
+                            >
+                              <ReceiptText />
+                              Cobrar
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </Bloque>
-            )}
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+
+              {/* ── Referentes ── */}
+              <Bloque
+                titulo={`Referentes (${data.referentes.length})`}
+                accion={
+                  <Button variant="ghost" size="sm" onClick={() => setReferentesAbierto(true)}>
+                    <Users />
+                    Editar
+                  </Button>
+                }
+              >
+                {data.referentes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nadie responde por este cliente.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {data.referentes.map((ref) => (
+                      <li
+                        key={`${ref.tipo}-${ref.id}`}
+                        className="flex items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5 text-xs"
+                      >
+                        <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[0.6rem] font-bold text-primary">
+                          {ref.tipo}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-semibold">
+                          {ref.nombreCompleto}
+                        </span>
+                        {ref.telefonos.length > 0 && <WhatsappButton telefonos={ref.telefonos} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Bloque>
+
+              {data.notas.length > 0 && (
+                <Bloque titulo={`Notas (${data.notas.length})`}>
+                  <ul className="space-y-1.5">
+                    {data.notas.map((nota) => (
+                      <li key={nota.id} className="rounded-lg bg-secondary px-2.5 py-2 text-xs">
+                        <p className="leading-relaxed">{nota.nota}</p>
+                        <span className="mt-1 block text-[0.65rem] text-muted-foreground">
+                          {formatFecha(nota.fechaDeCreacion)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Bloque>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {data && (
+        <>
+          <ClienteFormDialog
+            cliente={enListado ?? null}
+            open={editandoCliente}
+            onOpenChange={(o) => {
+              setEditandoCliente(o);
+              if (!o) refrescar();
+            }}
+          />
+          <ReferentesEditor
+            clienteId={data.estadoDeCuenta.clienteId}
+            clienteNombre={data.cliente.nombreCompleto}
+            open={referentesAbierto}
+            onOpenChange={setReferentesAbierto}
+            onGuardado={refrescar}
+          />
+          <CobroDialog
+            cuota={cuotaACobrar}
+            clienteNombre={data.cliente.nombreCompleto}
+            cobradorId={cobradorId}
+            cobradorNombre={data.cobradorAsignadoNombre}
+            open={cuotaACobrar !== null}
+            onOpenChange={(o) => !o && setCuotaACobrar(null)}
+            onCobrado={refrescar}
+          />
+        </>
+      )}
+
+      <PlanFormDialog
+        plan={planEnEdicion}
+        clienteFijo={clienteId ?? undefined}
+        open={planAbierto}
+        onOpenChange={(o) => {
+          setPlanAbierto(o);
+          if (!o) refrescar();
+        }}
+      />
+    </>
   );
 }
 
@@ -193,29 +488,43 @@ function Dato({ icono, children }: { icono: React.ReactNode; children: React.Rea
   );
 }
 
-function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Bloque({
+  titulo,
+  accion,
+  children,
+}: {
+  titulo: string;
+  accion?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-2 border-t border-border pt-3">
-      <h3 className="text-[0.7rem] font-bold tracking-[0.06em] text-muted-foreground uppercase">
-        {titulo}
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[0.7rem] font-bold tracking-[0.06em] text-muted-foreground uppercase">
+          {titulo}
+        </h3>
+        {accion}
+      </div>
       {children}
     </section>
   );
 }
 
-function Total({ label, valor, className }: { label: string; valor: number; className?: string }) {
+function Total({
+  label,
+  valor,
+  className,
+}: {
+  label: string;
+  valor: number;
+  className?: string;
+}) {
   return (
-    <div className="rounded-lg bg-secondary px-2 py-2">
-      <div className="text-[0.62rem] font-semibold tracking-wide text-muted-foreground uppercase">
+    <div className="rounded-lg bg-secondary px-2 py-1.5">
+      <div className="text-[0.6rem] font-bold tracking-wider text-muted-foreground uppercase">
         {label}
       </div>
-      <div className={cn("mt-0.5 font-mono text-sm font-bold", className)}>{fmtMoney(valor)}</div>
+      <div className={cn("font-mono text-sm font-bold", className)}>{fmtMoney(valor)}</div>
     </div>
   );
-}
-
-/** Skeleton reutilizable — se deja exportado para las listas de gestión */
-export function FichaSkeleton() {
-  return <Skeleton className="h-20 rounded-xl" />;
 }

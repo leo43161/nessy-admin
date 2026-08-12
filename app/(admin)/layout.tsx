@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
+import { NavTabs } from "@/components/layout/nav-tabs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { restoreSession } from "@/store/slices/auth.slice";
 import { initRango } from "@/store/slices/ui.slice";
@@ -45,9 +46,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    // La navegación es fija: abajo en el teléfono (pb-24 para que no tape el
+    // final del listado) y como franja a la izquierda desde `sm` (pl-18).
+    <div className="min-h-screen bg-background sm:pl-18">
       <Topbar />
-      <main className="pb-16">{children}</main>
+      <main className="pb-24 sm:pb-8">{children}</main>
+      <NavTabs />
     </div>
   );
 }
