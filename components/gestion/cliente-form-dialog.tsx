@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MapaCobro } from "@/components/gestion/mapa-cobro";
 import { CLIENTE_STATUSES } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { guardarCliente } from "@/store/slices/clientes.slice";
@@ -181,15 +182,10 @@ function ClienteForm({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="ubicacion">Dónde se cobra</Label>
-          <Input
-            id="ubicacion"
-            placeholder="Kiosco · Perú 2210"
-            value={form.ubicacionCobro ?? ""}
-            onChange={(e) => set("ubicacionCobro", e.target.value || null)}
-          />
-        </div>
+        {/* El punto de cobro va en el mapa y no en un input de texto: esa
+            columna es la que los SPs de cobro comparan contra la ubicación del
+            cobrador para marcar Dentro_Rango, y solo entiende "lat,lon". */}
+        <MapaCobro valor={form.ubicacionCobro} onChange={(v) => set("ubicacionCobro", v)} />
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
