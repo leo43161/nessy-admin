@@ -8,6 +8,7 @@ import { StatCard } from "@/components/analisis/stat-card";
 import { DistribucionEstados } from "@/components/analisis/distribucion-estados";
 import { PerformanceCobradores } from "@/components/analisis/performance-cobradores";
 import { CobrosCruzados } from "@/components/analisis/cobros-cruzados";
+import { Panorama } from "@/components/analisis/panorama";
 import { cobrosCruzados, distribucionDeEstados, performancePorCobrador } from "@/lib/agregados";
 import { todayISO } from "@/lib/format";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -42,6 +43,12 @@ export default function AnalisisPage() {
       <SectionHeader titulo="Rendimiento del equipo" subtitulo="Histórico completo" />
 
       <div className="px-4">
+        {/* Va arriba y con su propia carga: son los SP de la base, no dependen
+            del histórico que trae esta pantalla. */}
+        <div className="mb-3">
+          <Panorama />
+        </div>
+
         {cargando ? (
           <div className="space-y-3">
             <Skeleton className="h-32 rounded-2xl" />
