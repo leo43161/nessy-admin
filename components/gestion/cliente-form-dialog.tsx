@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { MapaCobro } from "@/components/gestion/mapa-cobro";
 import { esTelefonoGuardable, TelefonosInput } from "@/components/gestion/telefono-input";
+import { ReferentesEditor } from "@/components/gestion/referentes-editor";
+import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { guardarCliente } from "@/store/slices/clientes.slice";
 import { useLocalidades } from "@/hooks/use-catalogos";
@@ -99,6 +101,9 @@ function ClienteForm({
   const localidades = useLocalidades();
   const [form, setForm] = useState<ClientePayload>(() => aPayload(cliente));
   const [guardando, setGuardando] = useState(false);
+  // Cliente al que se le están cargando los referentes: el recién creado, o
+  // este mismo si se está editando.
+  const [referentesDe, setReferentesDe] = useState<{ id: number; nombre: string } | null>(null);
 
   const set = <K extends keyof ClientePayload>(campo: K, valor: ClientePayload[K]) =>
     setForm((f) => ({ ...f, [campo]: valor }));
@@ -115,12 +120,21 @@ function ClienteForm({
       guardarCliente({ ...form, telefonos: form.telefonos.filter(esTelefonoGuardable) }),
     );
     setGuardando(false);
-    if (guardarCliente.fulfilled.match(res)) {
-      toast.success(cliente ? "Cliente actualizado" : "Cliente creado");
-      onCerrar();
-    } else {
+    if (!guardarCliente.fulfilled.match(res)) {
       toast.error(res.payload ?? "No se pudo guardar.");
+      return;
     }
+
+    toast.success(cliente ? "Cliente actualizado" : "Cliente creado");
+
+    // En el alta el paso siguiente es quién responde por él, y es el momento
+    // en que se tiene el dato fresco. En la edición ya se cerró: los
+    // referentes se tocan desde la ficha.
+    if (cliente) {
+      onCerrar();
+      return;
+    }
+    setReferentesDe({ id: res.payload.id, nombre: res.payload.nombreCompleto });
   }
 
   return (
@@ -133,6 +147,10 @@ function ClienteForm({
             : "El alta crea también la cuenta corriente del cliente."}
         </DialogDescription>
       </DialogHeader>
+
+      {/* Solo en la edición: en el alta el cliente todavía no existe y no hay
+          notas que traer. */}
+      {cliente && <NotasCliente clienteId={cliente.id} />}
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* Sin select de estado: dar de baja a un cliente es `Clientes.Activo`
@@ -228,6 +246,23 @@ function ClienteForm({
           </Button>
         </DialogFooter>
       </form>
+
+      {/* Recién creado: se le cargan los referentes en el mismo envión. Al
+          cerrar este diálogo se cierra también el alta. */}
+      {referentesDe && (
+        <ReferentesEditor
+          clienteId={referentesDe.id}
+          clienteNombre={referentesDe.nombre}
+          open
+          onOpenChange={(abierto) => {
+            if (!abierto) {
+              setReferentesDe(null);
+              onCerrar();
+            }
+          }}
+          onGuardado={() => {}}
+        />
+      )}
     </>
   );
 }

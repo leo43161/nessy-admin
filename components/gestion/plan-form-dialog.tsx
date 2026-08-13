@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClienteFormDialog } from "@/components/gestion/cliente-form-dialog";
 import { ReferentesEditor } from "@/components/gestion/referentes-editor";
+import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { PLAN_STATUSES } from "@/lib/status";
 import { fmtMoney, formatFecha, todayISO } from "@/lib/format";
 import {
@@ -287,6 +288,10 @@ function PlanForm({
             </Button>
           )}
         </div>
+
+        {/* Con un cliente elegido, sus notas: explican por qué el plan se está
+            armando como se está armando. */}
+        {cliente && <NotasCliente clienteId={cliente.id} />}
 
         <div className="space-y-1.5">
           <Label htmlFor="nombre-plan">Nombre *</Label>

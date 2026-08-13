@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TelefonosInput, esTelefonoGuardable } from "@/components/gestion/telefono-input";
+import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { useAppSelector } from "@/store/hooks";
 import {
   crearReferente,
@@ -127,6 +128,8 @@ function Contenido({
           Quién responde si el cliente deja de pagar. Se guardan las dos listas juntas.
         </DialogDescription>
       </DialogHeader>
+
+      <NotasCliente clienteId={clienteId} />
 
       {cargando ? (
         <div className="flex justify-center py-10">
