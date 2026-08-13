@@ -29,8 +29,12 @@ export const COMODINES: { clave: keyof DatosMensaje; ejemplo: string }[] = [
  * sale con `{clientee}` a la vista, se ve el error y se corrige la plantilla.
  * Vaciarlo lo escondería y el cliente recibiría una frase sin sujeto.
  */
-export function aplicarPlantilla(mensaje: string, datos: DatosMensaje): string {
-  return mensaje.replace(/\{(\w+)\}/g, (original, clave: string) =>
-    clave in datos ? String(datos[clave as keyof DatosMensaje]) : original,
-  );
+export function aplicarPlantilla(mensaje: string, datos: Partial<DatosMensaje>): string {
+  return mensaje.replace(/\{(\w+)\}/g, (original, clave: string) => {
+    const valor = datos[clave as keyof DatosMensaje];
+    // `undefined` también se deja crudo: pasa cuando el botón no conoce ese
+    // dato (el de un referente no sabe de qué cuota se habla). Escribir
+    // "undefined" en el chat sería peor que dejar el comodín a la vista.
+    return valor === undefined ? original : String(valor);
+  });
 }

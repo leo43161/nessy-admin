@@ -31,6 +31,12 @@ assert.equal(
   "un comodín inexistente no se borra: escondido, el cliente recibiría una frase sin sujeto",
 );
 
+// Dato que el botón no conoce: se deja crudo, no se escribe "undefined".
+assert.equal(
+  aplicarPlantilla("Hola {cliente}, sobre {plan}", { cliente: "Ana" }),
+  "Hola Ana, sobre {plan}",
+);
+
 // Sin comodines, el texto pasa igual.
 assert.equal(aplicarPlantilla("Pasamos mañana.", datos), "Pasamos mañana.");
 assert.equal(aplicarPlantilla("", datos), "");

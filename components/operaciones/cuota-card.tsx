@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ESTADO } from "@/lib/status";
 import { fmtMoney, formatFecha } from "@/lib/format";
+import { diasEntre } from "@/lib/cuotas";
 import { StatusChip } from "@/components/shared/status-chip";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import { esApoyo, estadoVisible } from "@/lib/agregados";
@@ -14,17 +15,25 @@ export function CuotaCard({
   cobro,
   hoy,
   onClick,
-  onReclamar,
 }: {
   cobro: CobroDelDia;
   hoy: string;
   onClick?: () => void;
-  /** Solo para las vencidas: abre el mensaje de atraso con plantilla */
-  onReclamar?: () => void;
 }) {
   const estado = estadoVisible(cobro, hoy);
   const meta = ESTADO[estado];
   const apoyo = esApoyo(cobro);
+  const vencida = estado === "Vencido";
+  const dias = diasEntre(cobro.fechaAcordada, hoy);
+
+  // Con qué se completan los comodines de la plantilla que elija el admin.
+  const datos = {
+    cliente: cobro.cliente.nombreCompleto.split(" ")[0],
+    monto: fmtMoney(cobro.montoEsperado),
+    fecha: formatFecha(cobro.fechaAcordada),
+    dias,
+    plan: cobro.planNombre,
+  };
 
   return (
     <div
@@ -63,30 +72,30 @@ export function CuotaCard({
           </div>
         </div>
 
-        {/* Vencida: el botón deja de ser "abrir el chat" y pasa a ser un
-            reclamo con plantilla. Va en rojo y con texto porque es la acción
-            que hay que hacer, no una más de las disponibles. */}
-        {estado === "Vencido" && onReclamar ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              // La card entera es clickeable: sin esto se abriría también la
-              // ficha del cliente detrás del diálogo.
-              e.stopPropagation();
-              onReclamar();
-            }}
-            className="flex shrink-0 items-center gap-1 rounded-md bg-red-600 px-2 py-1.5 text-[0.65rem] font-bold text-white transition-transform active:scale-90"
-          >
-            <MessageCircle className="size-3.5" />
-            Reclamar
-          </button>
-        ) : (
-          <WhatsappButton telefonos={cobro.cliente.telefonos}>
+        {/* Los dos abren el mismo selector de plantillas; lo que cambia es el
+            grito: en una vencida el reclamo es LA acción, no una más de las
+            disponibles, así que va en rojo y con texto. */}
+        <WhatsappButton
+          telefonos={cobro.cliente.telefonos}
+          datos={datos}
+          titulo={vencida ? "Reclamo por atraso" : "Mensaje al cliente"}
+          descripcion={
+            vencida
+              ? `${cobro.cliente.nombreCompleto} · ${fmtMoney(cobro.montoEsperado)} vencidos hace ${dias} ${dias === 1 ? "día" : "días"}`
+              : cobro.cliente.nombreCompleto
+          }
+        >
+          {vencida ? (
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-red-600 px-2 py-1.5 text-[0.65rem] font-bold text-white transition-transform active:scale-90">
+              <MessageCircle className="size-3.5" />
+              Reclamar
+            </span>
+          ) : (
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#25D366] transition-transform active:scale-90">
               <MessageCircle className="size-4 text-white" />
             </span>
-          </WhatsappButton>
-        )}
+          )}
+        </WhatsappButton>
       </div>
     </div>
   );
