@@ -140,6 +140,8 @@ export interface CobroDelDia {
   montoEsperado: number;
   estado: PagoEstado;
   dentroRango: boolean | null;
+  /** `Pagos_por_realizar.WhatsApp_Enviado`: si ya se le mandó el comprobante */
+  whatsappEnviado: boolean;
   cobradorAsignadoId: number;
   cobradorAsignadoNombre: string;
   /** Quién lo cobró, si ya se registró (≠ asignado ⇒ asistencia) */

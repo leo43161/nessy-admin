@@ -40,6 +40,7 @@ function cuota(
     montoEsperado: monto,
     estado,
     dentroRango: cobradoPor === null ? null : cobradoPor === asignadoA,
+    whatsappEnviado: false,
     cobradorAsignadoId: asignadoA,
     cobradorAsignadoNombre: COBRADORES.find((c) => c.id === asignadoA)!.nombreCompleto,
     cobradoPorId: cobradoPor,

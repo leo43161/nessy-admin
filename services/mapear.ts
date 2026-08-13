@@ -36,6 +36,7 @@ export interface FilaCuota {
   Monto_esperado: string;
   Estado: string;
   Dentro_Rango: number | null;
+  WhatsApp_Enviado: number | null;
   vencida: number;
   plan_nombre: string | null;
   plan_status: string | null;
@@ -360,6 +361,7 @@ export function aCuota(
     montoEsperado: aNumero(f.Monto_esperado),
     estado: aEstadoCuota(f.Estado),
     dentroRango: aBooleanoNullable(f.Dentro_Rango),
+    whatsappEnviado: f.WhatsApp_Enviado === 1,
     // El kanban agrupa por cobrador: sin asignación la cuota quedaría fuera
     // de toda columna, así que 0 es la columna "sin asignar".
     cobradorAsignadoId: f.id_cobrador_asignado ?? 0,

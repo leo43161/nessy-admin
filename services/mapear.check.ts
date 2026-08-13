@@ -30,6 +30,7 @@ const FILA_CUOTA: FilaCuota = {
   Monto_esperado: "75000.00",
   Estado: "Pagado",
   Dentro_Rango: null,
+  WhatsApp_Enviado: null,
   vencida: 0,
   plan_nombre: "Préstamo de Mercadería (May)",
   plan_status: "Completado",

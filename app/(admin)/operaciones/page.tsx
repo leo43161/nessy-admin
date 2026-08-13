@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CountBadge, SectionHeader } from "@/components/shared/section-header";
 import { KanbanBoard } from "@/components/operaciones/kanban-board";
+import { AvisoAtrasos } from "@/components/operaciones/aviso-atrasos";
 import { ClienteDetailDialog } from "@/components/gestion/cliente-detail-dialog";
 import { columnasPorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
@@ -40,6 +41,7 @@ export default function OperacionesPage() {
         </EmptyState>
       ) : (
         <>
+          <AvisoAtrasos cobros={cobros} hoy={hoy} />
           <p className="px-4 pb-1.5 text-xs font-medium text-muted-foreground">
             ← Deslizá entre cobradores →
           </p>
