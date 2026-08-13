@@ -80,6 +80,20 @@ assert.equal(estadoVisible(COBROS[1], HOY), "Pendiente", "cuota futura sigue Pen
 assert.equal(estadoVisible(COBROS[2], HOY), "Vencido", "cuota pendiente pasada es Vencido");
 assert.equal(estadoVisible(COBROS[0], HOY), "Pagado", "una cuota cobrada nunca vence");
 
+// "Atrasado" le gana a "Vencido" cuando las dos cosas son ciertas.
+//
+// Vencido lo dice el calendario: nadie fue a ver esa cuota. Atrasado lo
+// escribe el cobrador cuando fue y no pudo cobrar. Si una atrasada apareciera
+// como vencida, el admin no podría separar lo que falta visitar de lo que ya
+// se visitó sin éxito — que es justo la decisión que tiene que tomar.
+const atrasada = { ...COBROS[2], estado: "Atrasado" as const };
+assert.equal(estadoVisible(atrasada, HOY), "Atrasado");
+assert.equal(
+  estadoVisible({ ...atrasada, fechaAcordada: "2099-01-01" }, HOY),
+  "Atrasado",
+  "atrasada sigue siendo atrasada aunque la fecha no haya pasado: la marcó una persona",
+);
+
 // ── Apoyo = lo cobró alguien distinto del asignado ──
 assert.equal(esApoyo(COBROS[3]), true, "Diego cobrando a un cliente de Luis es apoyo");
 assert.equal(esApoyo(COBROS[0]), false, "cobrar lo propio no es apoyo");

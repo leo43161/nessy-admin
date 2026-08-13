@@ -24,20 +24,36 @@ import type {
   PerformanceCobrador,
 } from "@/types";
 
-/** Orden de severidad de las cards dentro de una columna del kanban */
+/**
+ * Orden de severidad de las cards dentro de una columna del kanban.
+ *
+ * `Atrasado` va primero: son las que el cobrador ya fue a buscar sin éxito, o
+ * sea las que necesitan una decisión y no otra visita.
+ */
 const ORDEN_SEVERIDAD: Record<EstadoVisible, number> = {
-  Vencido: 0,
-  Pendiente: 1,
-  Pagado: 2,
+  Atrasado: 0,
+  Vencido: 1,
+  Pendiente: 2,
+  Pagado: 3,
 };
 
-export const ESTADOS_VISIBLES: EstadoVisible[] = ["Pagado", "Pendiente", "Vencido"];
+export const ESTADOS_VISIBLES: EstadoVisible[] = [
+  "Pagado",
+  "Pendiente",
+  "Vencido",
+  "Atrasado",
+];
 
 /**
- * Estado que se le muestra al admin. "Vencido" no existe en la DB: es
- * una cuota que sigue Pendiente y cuya fecha acordada ya pasó.
+ * Estado que se le muestra al admin.
+ *
+ * "Vencido" no existe en la DB: es una cuota que sigue Pendiente y cuya fecha
+ * ya pasó — nadie la fue a ver. "Atrasado" sí existe: lo escribe el cobrador
+ * cuando fue y no pudo cobrar, y por eso gana sobre vencido: las dos son
+ * ciertas, pero atrasado dice más.
  */
 export function estadoVisible(cobro: CobroDelDia, hoy: string): EstadoVisible {
+  if (cobro.estado === "Atrasado") return "Atrasado";
   return esVencido(cobro.estado, cobro.fechaAcordada, hoy) ? "Vencido" : cobro.estado;
 }
 

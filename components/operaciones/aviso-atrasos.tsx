@@ -24,11 +24,18 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
   const [abierto, setAbierto] = useState(false);
 
   const vencidas = cobros
-    .filter((c) => estadoVisible(c, hoy) === "Vencido")
+    .filter((c) => {
+      const e = estadoVisible(c, hoy);
+      return e === "Vencido" || e === "Atrasado";
+    })
     .sort((a, b) => a.fechaAcordada.localeCompare(b.fechaAcordada));
 
   if (vencidas.length === 0) return null;
 
+  // Las dos son deuda, pero piden cosas distintas: la vencida necesita que
+  // alguien vaya, la atrasada ya se visitó y necesita una decisión.
+  const sinVisitar = vencidas.filter((c) => c.estado !== "Atrasado");
+  const gestionadas = vencidas.filter((c) => c.estado === "Atrasado");
   const sinReclamar = vencidas.filter((c) => !c.whatsappEnviado);
   const monto = vencidas.reduce((s, c) => s + c.montoEsperado, 0);
 
@@ -43,13 +50,14 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
         <TriangleAlert className="size-4.5 shrink-0 text-red-600 dark:text-red-400" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-red-800 dark:text-red-200">
-            {vencidas.length} {vencidas.length === 1 ? "cuota vencida" : "cuotas vencidas"} ·{" "}
+            {vencidas.length} {vencidas.length === 1 ? "cuota en deuda" : "cuotas en deuda"} ·{" "}
             <span className="font-mono">{fmtMoney(monto)}</span>
           </div>
           <div className="text-[0.7rem] text-red-700 dark:text-red-300">
-            {sinReclamar.length === 0
-              ? "Todas reclamadas por WhatsApp"
-              : `${sinReclamar.length} sin reclamar todavía`}
+            {sinVisitar.length > 0 && `${sinVisitar.length} sin visitar`}
+            {sinVisitar.length > 0 && gestionadas.length > 0 && " · "}
+            {gestionadas.length > 0 && `${gestionadas.length} visitadas sin éxito`}
+            {sinReclamar.length > 0 && ` · ${sinReclamar.length} sin reclamar`}
           </div>
         </div>
         <ChevronDown
@@ -70,7 +78,17 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
                 className="flex items-center gap-2 rounded-lg bg-card px-2.5 py-1.5 text-xs"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{c.cliente.nombreCompleto}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="min-w-0 truncate font-semibold">
+                      {c.cliente.nombreCompleto}
+                    </span>
+                    {/* Ya se fue a buscarla: no es que nadie la haya visitado. */}
+                    {c.estado === "Atrasado" && (
+                      <span className="shrink-0 rounded-full bg-purple-100 px-1.5 py-px text-[0.58rem] font-bold text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                        visitada
+                      </span>
+                    )}
+                  </div>
                   <div className="font-mono text-[0.65rem] text-muted-foreground">
                     {fmtMoney(c.montoEsperado)} · {formatFecha(c.fechaAcordada)} · {dias}{" "}
                     {dias === 1 ? "día" : "días"}

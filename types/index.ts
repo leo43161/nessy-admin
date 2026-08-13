@@ -7,16 +7,18 @@
 // ════════════════════════════════════════════════════════════════
 
 /**
- * Estado de un pago por realizar (`Pagos_por_realizar.Estado`).
+ * Estado de la cuota, tal como lo guarda `Pagos_por_realizar.Estado`.
  *
- * Decisión N.4: manda la base. La columna solo guarda `Pendiente`, `Pagado` y
- * `Atrasado`, y `Atrasado` se traduce a `Pendiente` al mapear porque el front
- * deriva "Vencido" de la fecha.
- *
- * Los tres de la maqueta ya no viven acá: `Incomunicado` es una advertencia,
+ * Los tres de la maqueta no viven acá: `Incomunicado` es una advertencia,
  * `Adelanto` se deduce del monto cobrado y `Recargo` sale de una advertencia.
+ *
+ * `Atrasado` NO es lo mismo que vencido: vencido lo dice el calendario
+ * (pendiente + fecha pasada), atrasado lo pone el cobrador cuando fue y no
+ * pudo cobrar. Una cuota que nadie visitó hace meses está vencida pero no
+ * atrasada, y esa diferencia es lo que separa una gestión fallida de una
+ * cuota abandonada.
  */
-export type PagoEstado = "Pendiente" | "Pagado";
+export type PagoEstado = "Pendiente" | "Pagado" | "Atrasado";
 
 /** Plan_de_pagos.Status */
 export type PlanStatus = "Activo" | "Completado" | "Incumplido" | "Refinanciado";

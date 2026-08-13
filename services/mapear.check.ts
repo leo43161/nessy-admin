@@ -3,7 +3,7 @@
 // Las filas de abajo son capturas literales de la API en producción
 // (https://tucucompras.com.ar/fv1, 2026-08-05), no invenciones. Cubre lo que
 // muerde de verdad al traducir: los DECIMAL que llegan como string, los
-// tinyint que no son booleanos, el estado "Atrasado" que el front no tiene,
+// tinyint que no son booleanos, el estado "Atrasado" que ahora es propio,
 // y los NULL que el tipo declara obligatorios.
 import assert from "node:assert/strict";
 import {
@@ -112,8 +112,8 @@ assert.equal(aEstadoCuota("Pagado"), "Pagado");
 assert.equal(aEstadoCuota("Pendiente"), "Pendiente");
 assert.equal(
   aEstadoCuota("Atrasado"),
-  "Pendiente",
-  "Atrasado cae en Pendiente: el front deriva Vencido por fecha y ESTADO[] no tiene esa clave",
+  "Atrasado",
+  "Atrasado llega tal cual: lo escribe el cobrador cuando fue y no pudo cobrar, y hay que poder distinguirlo de una vencida que nadie visitó",
 );
 assert.equal(aEstadoCuota(null), "Pendiente");
 

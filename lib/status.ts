@@ -61,6 +61,18 @@ export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
     fila: "bg-red-50 dark:bg-red-950/40",
     texto: "text-red-600 dark:text-red-400",
   },
+  // Se fue a cobrar y no se pudo. Va en violeta y no en rojo a propósito: en
+  // el kanban hay que poder separar de un vistazo lo que nadie visitó (rojo)
+  // de lo que ya se gestionó sin éxito.
+  Atrasado: {
+    label: "Atrasado",
+    icono: "🚩",
+    card: "bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:border-purple-900",
+    chip: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800",
+    dot: "bg-purple-500",
+    fila: "bg-purple-50 dark:bg-purple-950/40",
+    texto: "text-purple-600 dark:text-purple-400",
+  },
 };
 
 export const CLIENTE_STATUS_BADGE: Record<ClienteStatus, string> = {
