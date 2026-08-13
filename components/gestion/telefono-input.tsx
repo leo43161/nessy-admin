@@ -57,62 +57,77 @@ export function TelefonosInput({ valores, onChange, localidadNombre }: Telefonos
         const incompleto = p.abonado !== "" && !telefonoCompleto(area, p.abonado);
 
         return (
-          <div key={i} className="flex gap-1.5">
-            <span className="flex h-9 shrink-0 items-center rounded-md bg-muted px-2 font-mono text-sm text-muted-foreground">
-              +54 9
-            </span>
+          // En el teléfono va en dos renglones: prefijo + característica arriba,
+          // número + quitar abajo. Los cuatro en una línea no entran —el select
+          // lleva el nombre de la zona— y se desbordaba del modal.
+          // El recuadro es solo en móvil: con dos renglones por teléfono, sin
+          // él no se ve qué característica va con qué número.
+          <div
+            key={i}
+            className="space-y-1.5 max-sm:rounded-md max-sm:border max-sm:p-2 sm:flex sm:items-center sm:gap-1.5 sm:space-y-0"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-9 shrink-0 items-center rounded-md bg-muted px-2 font-mono text-sm text-muted-foreground">
+                +54 9
+              </span>
 
-            <select
-              value={area}
-              onChange={(e) => set(i, e.target.value, p.abonado)}
-              aria-label={`Característica del teléfono ${i + 1}`}
-              className="h-9 shrink-0 rounded-md border border-input bg-transparent px-1.5 font-mono text-sm shadow-xs"
-            >
-              <optgroup label="Tucumán">
-                {AREAS_TUCUMAN.map((a) => (
-                  <option key={a.codigo} value={a.codigo}>
-                    {a.codigo} · {a.zona}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Resto del país">
-                {AREAS_PAIS.map((a) => (
-                  <option key={a.codigo} value={a.codigo}>
-                    {a.codigo} · {a.zona}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+              <select
+                value={area}
+                onChange={(e) => set(i, e.target.value, p.abonado)}
+                aria-label={`Característica del teléfono ${i + 1}`}
+                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 font-mono text-sm shadow-xs sm:w-40 sm:flex-none"
+              >
+                <optgroup label="Tucumán">
+                  {AREAS_TUCUMAN.map((a) => (
+                    <option key={a.codigo} value={a.codigo}>
+                      {a.codigo} · {a.zona}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Resto del país">
+                  {AREAS_PAIS.map((a) => (
+                    <option key={a.codigo} value={a.codigo}>
+                      {a.codigo} · {a.zona}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
 
-            <Input
-              value={p.abonado}
-              // Solo dígitos y con el largo que corresponde a esa
-              // característica: 7 para 381, 6 para 3863.
-              onChange={(e) =>
-                set(i, area, e.target.value.replace(/\D/g, "").slice(0, largoAbonado(area)))
-              }
-              placeholder={"5".repeat(largoAbonado(area))}
-              inputMode="tel"
-              aria-label={`Número del teléfono ${i + 1}`}
-              aria-invalid={incompleto}
-              className="font-mono aria-invalid:border-red-500"
-            />
+            <div className="flex items-center gap-1.5 sm:min-w-0 sm:flex-1">
+              <Input
+                value={p.abonado}
+                // Solo dígitos y con el largo que corresponde a esa
+                // característica: 7 para 381, 6 para 3863.
+                onChange={(e) =>
+                  set(i, area, e.target.value.replace(/\D/g, "").slice(0, largoAbonado(area)))
+                }
+                placeholder={"5".repeat(largoAbonado(area))}
+                inputMode="tel"
+                aria-label={`Número del teléfono ${i + 1}`}
+                aria-invalid={incompleto}
+                className="min-w-0 flex-1 font-mono aria-invalid:border-red-500"
+              />
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={`Quitar teléfono ${i + 1}`}
-              disabled={valores.length === 1}
-              onClick={() => onChange(valores.filter((_, j) => j !== i))}
-            >
-              <X />
-            </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                aria-label={`Quitar teléfono ${i + 1}`}
+                disabled={valores.length === 1}
+                onClick={() => onChange(valores.filter((_, j) => j !== i))}
+              >
+                <X />
+              </Button>
+            </div>
           </div>
         );
       })}
 
-      {partes.some((p) => p.abonado !== "" && !telefonoCompleto(p.area || areaSugerida, p.abonado)) && (
+      {partes.some(
+        (p) => p.abonado !== "" && !telefonoCompleto(p.area || areaSugerida, p.abonado),
+      ) && (
         <p className="text-xs text-red-600 dark:text-red-400">
           Falta completar el número: entre característica y abonado son 10 dígitos.
         </p>

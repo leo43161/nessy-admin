@@ -73,7 +73,10 @@ export function ClienteFormDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+      {/* A pantalla completa en el teléfono: con el mapa adentro, el formulario
+          es más alto que cualquier modal y en un 90dvh quedaba haciendo scroll
+          dentro de una ventanita. */}
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
         <ClienteForm
           key={cliente?.id ?? "nuevo"}
           cliente={cliente}
@@ -168,7 +171,9 @@ function ClienteForm({
             cobrador para marcar Dentro_Rango, y solo entiende "lat,lon". */}
         <MapaCobro valor={form.ubicacionCobro} onChange={(v) => set("ubicacionCobro", v)} />
 
-        <div className="grid grid-cols-2 gap-3">
+        {/* Dos columnas recién en `sm`: "Juan Bautista Alberdi" o el nombre
+            completo de un cobrador no entran en media pantalla de teléfono. */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="localidad">Localidad</Label>
             <Select
