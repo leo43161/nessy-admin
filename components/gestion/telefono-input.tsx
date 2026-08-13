@@ -75,7 +75,10 @@ export function TelefonosInput({ valores, onChange, localidadNombre }: Telefonos
                 value={area}
                 onChange={(e) => set(i, e.target.value, p.abonado)}
                 aria-label={`Característica del teléfono ${i + 1}`}
-                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 font-mono text-sm shadow-xs sm:w-40 sm:flex-none"
+                // `w-0` y no solo `flex-1`: un <select> con `width:auto` se
+                // planta en el ancho de su opción más larga y no lo suelta.
+                // Con ancho 0, `flex-1` le devuelve exactamente lo que sobra.
+                className="h-9 w-0 min-w-0 flex-1 rounded-md border border-input bg-transparent px-1.5 font-mono text-sm shadow-xs sm:w-40 sm:flex-none"
               >
                 <optgroup label="Tucumán">
                   {AREAS_TUCUMAN.map((a) => (
