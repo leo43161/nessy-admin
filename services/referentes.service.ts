@@ -53,27 +53,49 @@ export async function crearReferente(payload: ReferentePayload): Promise<number>
   return data.id_Referentes;
 }
 
-/** Garantes externos vinculados hoy al cliente */
+/**
+ * Garantes externos vinculados hoy al cliente.
+ *
+ * ⚠️ `/ref_cliente` dice QUIÉN responde por el cliente pero **no devuelve los
+ * teléfonos**, y sin teléfono el botón de WhatsApp no sirve. El catálogo
+ * completo sí los trae, así que se cruza por id.
+ */
 export async function getReferentesDeCliente(idCliente: number): Promise<ReferenteDeCliente[]> {
   const { data } = await api.get<{ referentes: FilaReferente[] }>("/ref_cliente", {
     params: { id_cliente: idCliente },
   });
 
-  return data.referentes.map(aReferenteDeCliente);
+  if (data.referentes.length === 0) return [];
+
+  const todos = await getReferentes();
+  const porId = new Map(todos.map((r) => [r.id, r.telefonos]));
+
+  return data.referentes.map((f) => ({
+    ...aReferenteDeCliente(f),
+    telefonos: porId.get(f.id_Referentes ?? 0) ?? [],
+  }));
 }
 
-/** Clientes que responden por este cliente */
+/** Clientes que responden por este cliente. Mismo cruce, contra `/clientes`. */
 export async function getClientesReferentes(idCliente: number): Promise<ReferenteDeCliente[]> {
   const { data } = await api.get<{ referentes: FilaReferente[] }>("/cli_cliente", {
     params: { id_cliente: idCliente },
   });
+
+  if (data.referentes.length === 0) return [];
+
+  const { data: catalogo } = await api.get<{ clientes: { id_Clientes: number; telefonos?: string[] }[] }>(
+    "/clientes",
+  );
+  const porId = new Map(catalogo.clientes.map((c) => [c.id_Clientes, aTelefonos(c.telefonos)]));
 
   // La misma fila pero de la tabla Clientes: el mapper no distingue el origen,
   // así que el tipo se corrige acá.
   return data.referentes.map((f) => ({
     ...aReferenteDeCliente(f),
     tipo: "Cliente" as const,
-    id: f.id_Clientes ?? f.id_Referentes ?? 0,
+    id: f.id_Clientes ?? 0,
+    telefonos: porId.get(f.id_Clientes ?? 0) ?? [],
   }));
 }
 

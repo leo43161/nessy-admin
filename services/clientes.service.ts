@@ -9,6 +9,7 @@ import {
   type RespuestaEstadoCuenta,
 } from "@/services/mapear";
 import { getCobradores } from "@/services/cobradores.service";
+import { getClientesReferentes, getReferentesDeCliente } from "@/services/referentes.service";
 import type {
   ClienteDetalle,
   ClienteListado,
@@ -68,11 +69,15 @@ async function cartera(): Promise<Map<number, { id: number; nombre: string }>> {
  * segundo segmento como nombre de método y responde "Método '7' no encontrado".
  */
 export async function getClienteDetalle(clienteId: number): Promise<ClienteDetalle> {
-  const [resCliente, resEstado, resNotas, asignado] = await Promise.all([
+  const [resCliente, resEstado, resNotas, asignado, externos, comoReferente] = await Promise.all([
     api.get<{ total: number; clientes: FilaCliente[] }>("/clientes", { params: { id: clienteId } }),
     api.get<RespuestaEstadoCuenta>("/estado_cuenta", { params: { id_cliente: clienteId } }),
     api.get<{ total: number; notas: FilaNota[] }>("/notas", { params: { id_cliente: clienteId } }),
     cartera(),
+    // Los referentes van aparte: los de `/estado_cuenta` son solo ids
+    // (`{Tipo_Referencia, ID_Referente}`), sin nombre ni teléfono.
+    getReferentesDeCliente(clienteId),
+    getClientesReferentes(clienteId),
   ]);
 
   const fila = resCliente.data.clientes[0];
@@ -84,6 +89,7 @@ export async function getClienteDetalle(clienteId: number): Promise<ClienteDetal
     resNotas.data.notas.map(aNota),
     asignado.get(clienteId)?.nombre ?? null,
     new Date().toISOString().slice(0, 10),
+    [...externos, ...comoReferente],
   );
 }
 

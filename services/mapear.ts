@@ -518,6 +518,13 @@ export function aClienteDetalle(
   notas: Nota[],
   cobradorNombre: string | null,
   hoy: string,
+  /**
+   * Ya resueltos por el servicio.
+   *
+   * NO salen de `estado.referentes`: ese endpoint devuelve solo ids
+   * (`{Tipo_Referencia, ID_Referente}`), sin nombre ni teléfono.
+   */
+  referentes: ReferenteDeCliente[] = [],
 ): ClienteDetalle {
   const cliente: Cliente = {
     id: fila.id_Clientes,
@@ -541,7 +548,7 @@ export function aClienteDetalle(
     localidadNombre: fila.nombre_localidad,
     telefonos: aTelefonos(fila.telefonos ?? estado.telefonos),
     cobradorAsignadoNombre: cobradorNombre,
-    referentes: estado.referentes.map(aReferenteDeCliente),
+    referentes,
     notas,
     estadoDeCuenta: aEstadoDeCuenta(estado, hoy),
   };
