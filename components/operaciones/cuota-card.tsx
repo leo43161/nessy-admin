@@ -15,15 +15,21 @@ export function CuotaCard({
   cobro,
   hoy,
   onClick,
+  onReclamado,
 }: {
   cobro: CobroDelDia;
   hoy: string;
   onClick?: () => void;
+  /** Refresca el tablero cuando la cuota pasa a "Reclamo realizado" */
+  onReclamado?: () => void;
 }) {
   const estado = estadoVisible(cobro, hoy);
   const meta = ESTADO[estado];
   const apoyo = esApoyo(cobro);
-  const vencida = estado === "Vencido";
+  // Reclamo pendiente = ya se visitó y no se pudo cobrar. Es la acción más
+  // urgente del tablero: va con PDF y queda registrada.
+  const reclamoPendiente = estado === "ReclamoPendiente";
+  const vencida = estado === "Vencido" || reclamoPendiente;
   const dias = diasEntre(cobro.fechaAcordada, hoy);
 
   // Con qué se completan los comodines de la plantilla que elija el admin.
@@ -78,6 +84,20 @@ export function CuotaCard({
         <WhatsappButton
           telefonos={cobro.cliente.telefonos}
           datos={datos}
+          // Solo la visitada se reclama con PDF y queda registrada: una vencida
+          // que nadie fue a ver todavía no es un reclamo.
+          reclamo={
+            reclamoPendiente
+              ? {
+                  cuotaId: cobro.id,
+                  clienteId: cobro.cliente.id,
+                  clienteNombre: cobro.cliente.nombreCompleto,
+                  clienteDni: cobro.cliente.dni,
+                  clienteDireccion: cobro.cliente.direccion,
+                  onReclamado,
+                }
+              : undefined
+          }
           titulo={vencida ? "Reclamo por atraso" : "Mensaje al cliente"}
           descripcion={
             vencida

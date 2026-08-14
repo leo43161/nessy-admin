@@ -87,12 +87,23 @@ assert.equal(estadoVisible(COBROS[0], HOY), "Pagado", "una cuota cobrada nunca v
 // como vencida, el admin no podría separar lo que falta visitar de lo que ya
 // se visitó sin éxito — que es justo la decisión que tiene que tomar.
 const atrasada = { ...COBROS[2], estado: "Atrasado" as const };
-assert.equal(estadoVisible(atrasada, HOY), "Atrasado");
+assert.equal(estadoVisible(atrasada, HOY), "ReclamoPendiente");
 assert.equal(
   estadoVisible({ ...atrasada, fechaAcordada: "2099-01-01" }, HOY),
-  "Atrasado",
-  "atrasada sigue siendo atrasada aunque la fecha no haya pasado: la marcó una persona",
+  "ReclamoPendiente",
+  "sigue reclamable aunque la fecha no haya pasado: la marcó una persona",
 );
+
+// Y una vez reclamada pasa a amarillo: de nuestro lado no queda nada por hacer.
+assert.equal(
+  estadoVisible({ ...atrasada, whatsappEnviado: true }, HOY),
+  "ReclamoRealizado",
+  "con el reclamo mandado deja de estar pendiente",
+);
+
+// El flag solo cuenta sobre una atrasada. Una vencida que nadie visitó sigue
+// vencida por más que alguna vez se le haya mandado un mensaje.
+assert.equal(estadoVisible({ ...COBROS[2], whatsappEnviado: true }, HOY), "Vencido");
 
 // ── Apoyo = lo cobró alguien distinto del asignado ──
 assert.equal(esApoyo(COBROS[3]), true, "Diego cobrando a un cliente de Luis es apoyo");

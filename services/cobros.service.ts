@@ -47,3 +47,21 @@ export async function registrarCobro(payload: CobroPayload): Promise<CobroResult
 
   return { tipo: data.tipo, sinUbicacion: data.sin_ubicacion };
 }
+
+/**
+ * Deja registrado que se le mandó el reclamo al cliente por esa cuota
+ * (`Pagos_por_realizar.WhatsApp_Enviado`, vía `sp_MarcarWhatsAppEnviado`).
+ *
+ * Es lo que hace que la cuota pase de "Reclamo pendiente" a "Reclamo
+ * realizado" en el tablero: sin esto, el admin no tiene forma de saber a
+ * quién ya le reclamó y termina mandando el mismo mensaje dos veces.
+ *
+ * No corta el flujo si falla: el mensaje ya salió y el cliente lo tiene.
+ */
+export async function marcarReclamoEnviado(cuotaId: number): Promise<void> {
+  try {
+    await api.post("/cuotas/whatsapp", { id_cuota: cuotaId });
+  } catch {
+    // silencio a propósito
+  }
+}

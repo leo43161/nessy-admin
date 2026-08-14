@@ -61,17 +61,27 @@ export const ESTADO: Record<EstadoVisible, EstadoMeta> = {
     fila: "bg-red-50 dark:bg-red-950/40",
     texto: "text-red-600 dark:text-red-400",
   },
-  // Se fue a cobrar y no se pudo. Va en violeta y no en rojo a propósito: en
-  // el kanban hay que poder separar de un vistazo lo que nadie visitó (rojo)
-  // de lo que ya se gestionó sin éxito.
-  Atrasado: {
-    label: "Atrasado",
+  // El cobrador fue y no pudo cobrar, y todavía nadie reclamó: es lo más
+  // urgente del tablero y por eso va en rojo pleno.
+  ReclamoPendiente: {
+    label: "Reclamo pendiente",
     icono: "🚩",
-    card: "bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:border-purple-900",
-    chip: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800",
-    dot: "bg-purple-500",
-    fila: "bg-purple-50 dark:bg-purple-950/40",
-    texto: "text-purple-600 dark:text-purple-400",
+    card: "bg-red-100 border-red-400 dark:bg-red-950/60 dark:border-red-800",
+    chip: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800",
+    dot: "bg-red-600",
+    fila: "bg-red-100 dark:bg-red-950/60",
+    texto: "text-red-700 dark:text-red-300",
+  },
+  // Ya se le mandó el reclamo: la pelota está del lado del cliente. Amarillo
+  // porque sigue sin cobrarse, pero de nuestro lado no queda nada por hacer.
+  ReclamoRealizado: {
+    label: "Reclamo realizado",
+    icono: "📨",
+    card: "bg-amber-50 border-amber-300 dark:bg-amber-950/40 dark:border-amber-900",
+    chip: "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800",
+    dot: "bg-amber-500",
+    fila: "bg-amber-50 dark:bg-amber-950/40",
+    texto: "text-amber-700 dark:text-amber-400",
   },
 };
 

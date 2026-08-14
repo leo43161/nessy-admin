@@ -27,6 +27,9 @@ export function usePeriodo() {
     cobradores,
     rango,
     hoy: todayISO(),
+    /** Vuelve a pedir el período. Lo usa el reclamo, que cambia el estado de
+     *  una cuota y necesita que el tablero se entere. */
+    refrescar: () => rango && dispatch(fetchPeriodo(rango)),
     cargando: status === "idle" || status === "loading",
     error: status === "failed" ? error : null,
     /** "Lun 8 jun" o "Lun 8 jun → Sáb 13 jun" */

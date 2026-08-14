@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 import {
   aCliente,
   aClienteDetalle,
+  aEstadoDeCuenta,
   aNota,
   deCliente,
   type FilaCliente,
@@ -14,6 +15,7 @@ import type {
   ClienteDetalle,
   ClienteListado,
   ClientePayload,
+  EstadoDeCuenta,
   FiltroClientes,
   Nota,
 } from "@/types";
@@ -160,4 +162,21 @@ export async function asignarCobrador(idCliente: number, idCobrador: number): Pr
 export async function eliminarCliente(id: number): Promise<number> {
   await api.delete("/clientes", { data: { id } });
   return id;
+}
+
+/**
+ * Estado de cuenta del cliente, para adjuntarlo en PDF al reclamo.
+ *
+ * Va aparte de `getClienteDetalle` porque el reclamo se manda desde el kanban,
+ * donde no hace falta la ficha entera: solo el saldo y los movimientos que
+ * entran en el PDF.
+ */
+export async function getEstadoDeCuenta(clienteId: number): Promise<{
+  estadoDeCuenta: EstadoDeCuenta;
+}> {
+  const { data } = await api.get<RespuestaEstadoCuenta>("/estado_cuenta", {
+    params: { id_cliente: clienteId },
+  });
+
+  return { estadoDeCuenta: aEstadoDeCuenta(data, new Date().toISOString().slice(0, 10)) };
 }

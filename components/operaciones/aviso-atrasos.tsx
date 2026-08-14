@@ -20,23 +20,29 @@ import type { CobroDelDia } from "@/types";
  * De cada una se puede reclamar sin moverse, con el mismo selector de
  * plantillas que el resto del panel.
  */
-export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: string }) {
+export function AvisoAtrasos({
+  cobros,
+  hoy,
+  onReclamado,
+}: {
+  cobros: CobroDelDia[];
+  hoy: string;
+  /** Refresca el tablero cuando una cuota pasa a "Reclamo realizado" */
+  onReclamado?: () => void;
+}) {
   const [abierto, setAbierto] = useState(false);
 
   const vencidas = cobros
-    .filter((c) => {
-      const e = estadoVisible(c, hoy);
-      return e === "Vencido" || e === "Atrasado";
-    })
+    .filter((c) => estadoVisible(c, hoy) !== "Pagado" && estadoVisible(c, hoy) !== "Pendiente")
     .sort((a, b) => a.fechaAcordada.localeCompare(b.fechaAcordada));
 
   if (vencidas.length === 0) return null;
 
-  // Las dos son deuda, pero piden cosas distintas: la vencida necesita que
-  // alguien vaya, la atrasada ya se visitó y necesita una decisión.
+  // Tres situaciones distintas, tres cosas por hacer: mandar al cobrador,
+  // reclamar, o esperar.
   const sinVisitar = vencidas.filter((c) => c.estado !== "Atrasado");
-  const gestionadas = vencidas.filter((c) => c.estado === "Atrasado");
-  const sinReclamar = vencidas.filter((c) => !c.whatsappEnviado);
+  const sinReclamar = vencidas.filter((c) => c.estado === "Atrasado" && !c.whatsappEnviado);
+  const reclamadas = vencidas.filter((c) => c.estado === "Atrasado" && c.whatsappEnviado);
   const monto = vencidas.reduce((s, c) => s + c.montoEsperado, 0);
 
   return (
@@ -54,10 +60,13 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
             <span className="font-mono">{fmtMoney(monto)}</span>
           </div>
           <div className="text-[0.7rem] text-red-700 dark:text-red-300">
-            {sinVisitar.length > 0 && `${sinVisitar.length} sin visitar`}
-            {sinVisitar.length > 0 && gestionadas.length > 0 && " · "}
-            {gestionadas.length > 0 && `${gestionadas.length} visitadas sin éxito`}
-            {sinReclamar.length > 0 && ` · ${sinReclamar.length} sin reclamar`}
+            {[
+              sinVisitar.length > 0 && `${sinVisitar.length} sin visitar`,
+              sinReclamar.length > 0 && `${sinReclamar.length} con reclamo pendiente`,
+              reclamadas.length > 0 && `${reclamadas.length} ya reclamadas`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
         </div>
         <ChevronDown
@@ -98,8 +107,8 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
                 {/* Ya reclamada: se marca en vez de esconderla, para que se vea
                     que esa gestión está hecha y no se repita el mensaje. */}
                 {c.whatsappEnviado ? (
-                  <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[0.6rem] font-bold text-green-800 dark:bg-green-950 dark:text-green-300">
-                    Reclamada
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6rem] font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    Reclamo realizado
                   </span>
                 ) : (
                   <WhatsappButton
@@ -113,6 +122,21 @@ export function AvisoAtrasos({ cobros, hoy }: { cobros: CobroDelDia[]; hoy: stri
                       dias,
                       plan: c.planNombre,
                     }}
+                    // Solo las visitadas se reclaman con PDF y quedan
+                    // registradas: una vencida que nadie fue a ver todavía no
+                    // es un reclamo, es una visita pendiente.
+                    reclamo={
+                      c.estado === "Atrasado"
+                        ? {
+                            cuotaId: c.id,
+                            clienteId: c.cliente.id,
+                            clienteNombre: c.cliente.nombreCompleto,
+                            clienteDni: c.cliente.dni,
+                            clienteDireccion: c.cliente.direccion,
+                            onReclamado: onReclamado,
+                          }
+                        : undefined
+                    }
                   >
                     <span className="flex shrink-0 items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-[0.62rem] font-bold text-white transition-transform active:scale-90">
                       <MessageCircle className="size-3" />

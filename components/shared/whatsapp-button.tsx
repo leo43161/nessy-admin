@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MensajeWhatsappDialog } from "@/components/shared/mensaje-whatsapp-dialog";
+import { MensajeWhatsappDialog, type Reclamo } from "@/components/shared/mensaje-whatsapp-dialog";
 import type { DatosMensaje } from "@/lib/plantillas";
 import type { Telefono } from "@/types";
 
@@ -13,6 +13,8 @@ interface WhatsappButtonProps {
   mensaje?: string;
   /** Con qué se reemplazan los comodines de la plantilla elegida */
   datos?: Partial<DatosMensaje>;
+  /** Presente = es un reclamo: va con PDF y queda registrado */
+  reclamo?: Reclamo;
   titulo?: string;
   descripcion?: string;
   /** Trigger a mostrar (por defecto, un botón "WhatsApp") */
@@ -33,6 +35,7 @@ export function WhatsappButton({
   telefonos,
   mensaje,
   datos,
+  reclamo,
   titulo,
   descripcion,
   children,
@@ -69,6 +72,7 @@ export function WhatsappButton({
           telefonos={telefonos}
           mensajeInicial={mensaje}
           datos={datos}
+          reclamo={reclamo}
           titulo={titulo}
           descripcion={descripcion}
           open

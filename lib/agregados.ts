@@ -31,17 +31,19 @@ import type {
  * sea las que necesitan una decisión y no otra visita.
  */
 const ORDEN_SEVERIDAD: Record<EstadoVisible, number> = {
-  Atrasado: 0,
-  Vencido: 1,
-  Pendiente: 2,
-  Pagado: 3,
+  ReclamoPendiente: 0,
+  ReclamoRealizado: 1,
+  Vencido: 2,
+  Pendiente: 3,
+  Pagado: 4,
 };
 
 export const ESTADOS_VISIBLES: EstadoVisible[] = [
   "Pagado",
   "Pendiente",
   "Vencido",
-  "Atrasado",
+  "ReclamoPendiente",
+  "ReclamoRealizado",
 ];
 
 /**
@@ -53,8 +55,16 @@ export const ESTADOS_VISIBLES: EstadoVisible[] = [
  * ciertas, pero atrasado dice más.
  */
 export function estadoVisible(cobro: CobroDelDia, hoy: string): EstadoVisible {
-  if (cobro.estado === "Atrasado") return "Atrasado";
-  return esVencido(cobro.estado, cobro.fechaAcordada, hoy) ? "Vencido" : cobro.estado;
+  // El cobrador fue y no pudo cobrar. Lo que falta hacer ahora es reclamar, y
+  // si ya se reclamó, esperar: son dos situaciones distintas para el admin.
+  if (cobro.estado === "Atrasado") {
+    return cobro.whatsappEnviado ? "ReclamoRealizado" : "ReclamoPendiente";
+  }
+
+  if (esVencido(cobro.estado, cobro.fechaAcordada, hoy)) return "Vencido";
+
+  // `Atrasado` ya salió arriba: acá solo quedan Pendiente y Pagado.
+  return cobro.estado as EstadoVisible;
 }
 
 /** Una cuota la cobró alguien distinto del cobrador asignado (apoyo) */

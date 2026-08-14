@@ -16,10 +16,12 @@ export function KanbanBoard({
   columnas,
   hoy,
   onSeleccionar,
+  onReclamado,
 }: {
   columnas: ColumnaCobrador[];
   hoy: string;
   onSeleccionar?: (cobroId: number) => void;
+  onReclamado?: () => void;
 }) {
   return (
     <div className="scrollbar-thin flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pt-1 pb-4">
@@ -61,6 +63,7 @@ export function KanbanBoard({
                 cobro={cobro}
                 hoy={hoy}
                 onClick={onSeleccionar ? () => onSeleccionar(cobro.cliente.id) : undefined}
+                onReclamado={onReclamado}
               />
             ))}
           </div>

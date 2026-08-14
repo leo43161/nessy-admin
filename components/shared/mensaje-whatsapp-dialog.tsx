@@ -17,8 +17,28 @@ import {
 import { PlantillasDialog } from "@/components/gestion/plantillas-dialog";
 import { aplicarPlantilla, type DatosMensaje } from "@/lib/plantillas";
 import { whatsappUrl } from "@/lib/format";
+import { LEYENDA_RECLAMO } from "@/lib/estado-cuenta";
+import { enviarEstadoCuenta } from "@/lib/compartir";
 import { getPlantillas, type Plantilla } from "@/services/plantillas.service";
+import { getEstadoDeCuenta } from "@/services/clientes.service";
+import { marcarReclamoEnviado } from "@/services/cobros.service";
 import type { Telefono } from "@/types";
+
+/**
+ * Reclamo por una cuota que no se pudo cobrar.
+ *
+ * Cuando viene esto, el envío deja de ser "abrir el chat": adjunta el estado
+ * de cuenta en PDF y, al salir, marca la cuota como reclamada en la base.
+ */
+export interface Reclamo {
+  cuotaId: number;
+  clienteId: number;
+  clienteNombre: string;
+  clienteDni: string;
+  clienteDireccion: string | null;
+  /** Para refrescar el tablero cuando la cuota pasa a "Reclamo realizado" */
+  onReclamado?: () => void;
+}
 
 interface MensajeWhatsappDialogProps {
   telefonos: Telefono[];
@@ -26,6 +46,8 @@ interface MensajeWhatsappDialogProps {
   mensajeInicial?: string;
   /** Con qué se reemplazan los comodines de la plantilla */
   datos?: Partial<DatosMensaje>;
+  /** Presente = es un reclamo: va con PDF y queda registrado */
+  reclamo?: Reclamo;
   titulo?: string;
   descripcion?: string;
   open: boolean;
@@ -46,6 +68,7 @@ export function MensajeWhatsappDialog({
   telefonos,
   mensajeInicial,
   datos,
+  reclamo,
   titulo = "Mensaje por WhatsApp",
   descripcion,
   open,
@@ -56,6 +79,7 @@ export function MensajeWhatsappDialog({
   const [texto, setTexto] = useState(mensajeInicial ?? "");
   const [numero, setNumero] = useState(telefonos[0]?.numero ?? "");
   const [gestionAbierta, setGestionAbierta] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   const cargar = () => {
     getPlantillas()
@@ -81,10 +105,53 @@ export function MensajeWhatsappDialog({
     if (p) setTexto(aplicarPlantilla(p.mensaje, datos ?? {}));
   };
 
-  const abrirChat = () => {
+  /**
+   * Un mensaje suelto abre el chat y listo.
+   *
+   * Un reclamo hace tres cosas más: arma el estado de cuenta en PDF, lo manda
+   * adjunto —en el celular con la hoja de compartir; en escritorio no se puede
+   * adjuntar desde el navegador, así que se descarga— y deja registrado que se
+   * reclamó, que es lo que pinta la cuota de amarillo en el tablero.
+   */
+  const enviar = async () => {
     if (numero === "") return;
-    window.open(whatsappUrl(numero, texto.trim() === "" ? undefined : texto), "_blank");
-    onOpenChange(false);
+
+    if (!reclamo) {
+      window.open(whatsappUrl(numero, texto.trim() === "" ? undefined : texto), "_blank");
+      onOpenChange(false);
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const { estadoDeCuenta } = await getEstadoDeCuenta(reclamo.clienteId);
+      const { archivoEstadoCuentaPdf, descargarArchivo } = await import(
+        "@/lib/pdf/estado-cuenta-pdf"
+      );
+
+      const archivo = await archivoEstadoCuentaPdf(
+        estadoDeCuenta,
+        {
+          nombreCompleto: reclamo.clienteNombre,
+          dni: reclamo.clienteDni,
+          direccion: reclamo.clienteDireccion,
+          localidadNombre: null,
+        },
+        LEYENDA_RECLAMO,
+      );
+
+      const salio = await enviarEstadoCuenta(archivo, texto, numero, descargarArchivo);
+      if (!salio) return; // canceló la hoja de compartir: no se mandó nada
+
+      await marcarReclamoEnviado(reclamo.cuotaId);
+      toast.success("Reclamo enviado y registrado.");
+      reclamo.onReclamado?.();
+      onOpenChange(false);
+    } catch {
+      toast.error("No se pudo generar el reclamo.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -167,9 +234,9 @@ export function MensajeWhatsappDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={abrirChat} disabled={numero === ""}>
-              <MessageCircle />
-              Abrir WhatsApp
+            <Button onClick={enviar} disabled={numero === "" || enviando}>
+              {enviando ? <Loader2 className="animate-spin" /> : <MessageCircle />}
+              {enviando ? "Generando PDF…" : reclamo ? "Enviar reclamo con PDF" : "Abrir WhatsApp"}
             </Button>
           </DialogFooter>
         </DialogContent>

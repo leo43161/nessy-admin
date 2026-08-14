@@ -11,7 +11,7 @@ import { columnasPorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
 
 export default function OperacionesPage() {
-  const { cobros, cobradores, hoy, cargando, error, etiquetaRango } = usePeriodo();
+  const { cobros, cobradores, hoy, cargando, error, etiquetaRango, refrescar } = usePeriodo();
   const [clienteId, setClienteId] = useState<number | null>(null);
 
   const columnas = useMemo(
@@ -41,7 +41,7 @@ export default function OperacionesPage() {
         </EmptyState>
       ) : (
         <>
-          <AvisoAtrasos cobros={cobros} hoy={hoy} />
+          <AvisoAtrasos cobros={cobros} hoy={hoy} onReclamado={refrescar} />
           <p className="px-4 pb-1.5 text-xs font-medium text-muted-foreground">
             ← Deslizá entre cobradores →
           </p>
@@ -49,6 +49,7 @@ export default function OperacionesPage() {
             columnas={columnas}
             hoy={hoy}
             onSeleccionar={setClienteId}
+            onReclamado={refrescar}
           />
         </>
       )}

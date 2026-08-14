@@ -247,7 +247,24 @@ export interface RangoFechas {
 }
 
 /** Estado que muestra la UI del admin: el de la cuota, más "Vencido" derivado */
-export type EstadoVisible = PagoEstado | "Vencido";
+/**
+ * Estado que se le muestra al admin.
+ *
+ * Dos no existen en la base y se derivan:
+ *
+ *   Vencido           pendiente + fecha pasada — nadie fue a verla
+ *   ReclamoPendiente  el cobrador fue y no pudo cobrar, y todavía no se reclamó
+ *   ReclamoRealizado  ídem, pero ya se le mandó el reclamo por WhatsApp
+ *
+ * Los dos últimos son la misma fila (`Estado = 'Atrasado'`) partida por
+ * `WhatsApp_Enviado`: lo que cambia es qué falta hacer, y por eso son colores
+ * distintos.
+ */
+export type EstadoVisible =
+  | Exclude<PagoEstado, "Atrasado">
+  | "Vencido"
+  | "ReclamoPendiente"
+  | "ReclamoRealizado";
 
 /** Una columna del kanban de Operaciones */
 export interface ColumnaCobrador {
