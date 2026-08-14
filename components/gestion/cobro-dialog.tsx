@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { NotasCliente } from "@/components/gestion/notas-cliente";
+import { ReferentesCliente } from "@/components/gestion/referentes-cliente";
 import { useMetodosDePago } from "@/hooks/use-catalogos";
 import { registrarCobro } from "@/services/cobros.service";
 import { fmtMoney, formatFecha } from "@/lib/format";
@@ -127,6 +128,13 @@ export function CobroDialog({
         {/* Las notas del cliente antes de registrar: son el contexto de por qué
             ese cobro entró como entró. */}
         <NotasCliente clienteId={cuota.clienteId} />
+
+        {/* Plegado: el garante es el plan B, no la acción principal. */}
+        <ReferentesCliente
+          clienteId={cuota.clienteId}
+          clienteNombre={clienteNombre}
+          plegado
+        />
 
         {cobradorId == null ? (
           <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">

@@ -13,7 +13,6 @@ import {
   Plus,
   ReceiptText,
   User,
-  Users,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,7 +26,7 @@ import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import { ClienteFormDialog } from "@/components/gestion/cliente-form-dialog";
 import { PlanFormDialog } from "@/components/gestion/plan-form-dialog";
-import { ReferentesEditor } from "@/components/gestion/referentes-editor";
+import { ReferentesCliente } from "@/components/gestion/referentes-cliente";
 import { CobroDialog, type CuotaACobrar } from "@/components/gestion/cobro-dialog";
 import { cn } from "@/lib/utils";
 import { fmtMoney, formatFecha, mapaUrl } from "@/lib/format";
@@ -63,7 +62,6 @@ export function ClienteDetailDialog({
   const cobradores = useAppSelector((s) => s.admin.cobradores.items);
 
   const [editandoCliente, setEditandoCliente] = useState(false);
-  const [referentesAbierto, setReferentesAbierto] = useState(false);
   const [planEnEdicion, setPlanEnEdicion] = useState<PlanListado | null>(null);
   const [planAbierto, setPlanAbierto] = useState(false);
   const [cuotaACobrar, setCuotaACobrar] = useState<CuotaACobrar | null>(null);
@@ -386,37 +384,16 @@ export function ClienteDetailDialog({
                 )}
               </Bloque>
 
-              {/* ── Referentes ── */}
-              <Bloque
-                titulo={`Referentes (${data.referentes.length})`}
-                accion={
-                  <Button variant="ghost" size="sm" onClick={() => setReferentesAbierto(true)}>
-                    <Users />
-                    Editar
-                  </Button>
-                }
-              >
-                {data.referentes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nadie responde por este cliente.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {data.referentes.map((ref) => (
-                      <li
-                        key={`${ref.tipo}-${ref.id}`}
-                        className="flex items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5 text-xs"
-                      >
-                        <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[0.6rem] font-bold text-primary">
-                          {ref.tipo}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate font-semibold">
-                          {ref.nombreCompleto}
-                        </span>
-                        {ref.telefonos.length > 0 && <WhatsappButton telefonos={ref.telefonos} />}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Bloque>
+              {/* ── Referentes: listados con su WhatsApp, no detrás de otro
+                  modal. El teléfono del garante se necesita justo cuando el
+                  cliente no responde. ──*/}
+              <ReferentesCliente
+                clienteId={data.estadoDeCuenta.clienteId}
+                clienteNombre={data.cliente.nombreCompleto}
+                referentes={data.referentes}
+                editable
+                onEditado={refrescar}
+              />
 
               {data.notas.length > 0 && (
                 <Bloque titulo={`Notas (${data.notas.length})`}>
@@ -446,13 +423,6 @@ export function ClienteDetailDialog({
               setEditandoCliente(o);
               if (!o) refrescar();
             }}
-          />
-          <ReferentesEditor
-            clienteId={data.estadoDeCuenta.clienteId}
-            clienteNombre={data.cliente.nombreCompleto}
-            open={referentesAbierto}
-            onOpenChange={setReferentesAbierto}
-            onGuardado={refrescar}
           />
           <CobroDialog
             cuota={cuotaACobrar}
