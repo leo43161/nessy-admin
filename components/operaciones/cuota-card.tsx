@@ -4,7 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ESTADO } from "@/lib/status";
 import { fmtMoney, formatFecha } from "@/lib/format";
-import { diasEntre } from "@/lib/cuotas";
+import { diasEntre, textoAtraso } from "@/lib/cuotas";
 import { StatusChip } from "@/components/shared/status-chip";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import { esApoyo, estadoVisible } from "@/lib/agregados";
@@ -101,7 +101,7 @@ export function CuotaCard({
           titulo={vencida ? "Reclamo por atraso" : "Mensaje al cliente"}
           descripcion={
             vencida
-              ? `${cobro.cliente.nombreCompleto} · ${fmtMoney(cobro.montoEsperado)} vencidos hace ${dias} ${dias === 1 ? "día" : "días"}`
+              ? `${cobro.cliente.nombreCompleto} · ${fmtMoney(cobro.montoEsperado)} ${textoAtraso(dias)}`
               : cobro.cliente.nombreCompleto
           }
         >

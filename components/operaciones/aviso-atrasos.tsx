@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, MessageCircle, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtMoney, formatFecha } from "@/lib/format";
-import { diasEntre } from "@/lib/cuotas";
+import { diasEntre, textoAtraso } from "@/lib/cuotas";
 import { estadoVisible } from "@/lib/agregados";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import type { CobroDelDia } from "@/types";
@@ -114,7 +114,7 @@ export function AvisoAtrasos({
                   <WhatsappButton
                     telefonos={c.cliente.telefonos}
                     titulo="Reclamo por atraso"
-                    descripcion={`${c.cliente.nombreCompleto} · ${fmtMoney(c.montoEsperado)} vencidos hace ${dias} ${dias === 1 ? "día" : "días"}`}
+                    descripcion={`${c.cliente.nombreCompleto} · ${fmtMoney(c.montoEsperado)} ${textoAtraso(dias)}`}
                     datos={{
                       cliente: c.cliente.nombreCompleto.split(" ")[0],
                       monto: fmtMoney(c.montoEsperado),

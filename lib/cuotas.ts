@@ -130,6 +130,19 @@ export function calcularResumen(
   };
 }
 
+/**
+ * Cómo se describe el atraso de una cuota.
+ *
+ * No siempre está vencida: el cobrador puede marcar "no pude cobrar" **antes**
+ * del vencimiento —fue, el cliente no estaba, y lo deja registrado—. Ahí los
+ * días dan negativo y el texto decía "vencidos hace -12 días".
+ */
+export function textoAtraso(dias: number): string {
+  if (dias > 0) return `vencidos hace ${dias} ${dias === 1 ? "día" : "días"}`;
+  if (dias === 0) return "vencen hoy";
+  return `vencen en ${-dias} ${dias === -1 ? "día" : "días"}`;
+}
+
 /** "5 meses y 12 días" — para mostrar cuánto dura la financiación */
 export function duracionEnPalabras(dias: number): string {
   if (dias <= 0) return "un solo pago";

@@ -75,10 +75,11 @@ export function ClienteDetailDialog({
 
   const cargando = status === "loading" || status === "idle" || !data;
 
-  // El detalle no trae el id del cobrador, solo su nombre: el select necesita
-  // el id y sale de la fila del listado, que ya está en el store.
+  // El id del cobrador viene en el propio detalle: buscarlo en el listado de
+  // clientes fallaba al abrir la ficha desde el kanban, donde ese listado no
+  // está cargado y el select mostraba "Sin asignar".
   const enListado: ClienteListado | undefined = clientes.find((c) => c.id === clienteId);
-  const cobradorId = enListado?.cobradorAsignadoId ?? null;
+  const cobradorId = data?.cobradorAsignadoId ?? null;
 
   const refrescar = () => {
     if (clienteId != null) dispatch(fetchClienteDetalle(clienteId));

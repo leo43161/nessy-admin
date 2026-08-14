@@ -12,6 +12,7 @@ import {
   montoPorCuota,
   repartir,
   sumarMeses,
+  textoAtraso,
   totalConInteres,
 } from "./cuotas.ts";
 
@@ -134,5 +135,16 @@ assert.equal(duracionEnPalabras(122), "4 meses y 2 días");
 assert.equal(duracionEnPalabras(60), "2 meses");
 assert.equal(duracionEnPalabras(1), "1 día");
 assert.equal(duracionEnPalabras(0), "un solo pago");
+
+/* ── el texto del atraso ── */
+//
+// El cobrador puede marcar "no pude cobrar" ANTES del vencimiento: fue, el
+// cliente no estaba, y lo deja registrado. Ahí los días dan negativo y el
+// cartel decía "vencidos hace -12 días".
+assert.equal(textoAtraso(5), "vencidos hace 5 días");
+assert.equal(textoAtraso(1), "vencidos hace 1 día");
+assert.equal(textoAtraso(0), "vencen hoy");
+assert.equal(textoAtraso(-12), "vencen en 12 días", "marcada antes de vencer");
+assert.equal(textoAtraso(-1), "vencen en 1 día");
 
 console.log("✓ cuotas.ts OK");

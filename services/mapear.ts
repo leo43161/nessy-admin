@@ -516,7 +516,7 @@ export function aClienteDetalle(
   fila: FilaCliente,
   estado: RespuestaEstadoCuenta,
   notas: Nota[],
-  cobradorNombre: string | null,
+  cobrador: { id: number; nombre: string } | null,
   hoy: string,
   /**
    * Ya resueltos por el servicio.
@@ -547,7 +547,8 @@ export function aClienteDetalle(
     cliente,
     localidadNombre: fila.nombre_localidad,
     telefonos: aTelefonos(fila.telefonos ?? estado.telefonos),
-    cobradorAsignadoNombre: cobradorNombre,
+    cobradorAsignadoId: cobrador?.id ?? null,
+    cobradorAsignadoNombre: cobrador?.nombre ?? null,
     referentes,
     notas,
     estadoDeCuenta: aEstadoDeCuenta(estado, hoy),

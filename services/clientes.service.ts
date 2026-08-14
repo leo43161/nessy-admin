@@ -89,7 +89,7 @@ export async function getClienteDetalle(clienteId: number): Promise<ClienteDetal
     fila,
     resEstado.data,
     resNotas.data.notas.map(aNota),
-    asignado.get(clienteId)?.nombre ?? null,
+    asignado.get(clienteId) ?? null,
     new Date().toISOString().slice(0, 10),
     [...externos, ...comoReferente],
   );

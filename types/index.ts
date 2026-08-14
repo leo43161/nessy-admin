@@ -183,6 +183,12 @@ export interface ClienteDetalle {
   cliente: Cliente;
   localidadNombre: string | null;
   telefonos: Telefono[];
+  /**
+   * El id va acá y no se busca en el listado de clientes: la ficha se abre
+   * también desde el kanban, donde ese listado no está cargado, y el select de
+   * cobrador mostraba "Sin asignar" en clientes que sí lo tenían.
+   */
+  cobradorAsignadoId: number | null;
   cobradorAsignadoNombre: string | null;
   referentes: ReferenteDeCliente[];
   notas: Nota[];
