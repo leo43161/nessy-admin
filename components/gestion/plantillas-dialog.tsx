@@ -58,7 +58,11 @@ export function PlantillasDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
+      {/* Sin pantalla completa en móvil, a diferencia de la ficha y los
+          formularios: acá el contenido es corto —una lista de dos o tres
+          plantillas— y forzar `h-dvh` estiraba las filas del grid hasta llenar
+          la pantalla, dejando el encabezado de 60px ocupando 200. */}
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {open && <Contenido onCerrar={() => onOpenChange(false)} onCambio={onCambio} />}
       </DialogContent>
     </Dialog>

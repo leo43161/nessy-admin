@@ -53,12 +53,17 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
+          // `content-start`: el grid reparte el alto sobrante entre sus filas.
+          // En los diálogos a pantalla completa (`h-dvh`) eso estiraba cada
+          // sección para llenar la altura, y un encabezado de 60px terminaba
+          // ocupando 200. Con `start` cada fila mide lo suyo.
+          //
           // `[&>*]:min-w-0`: el contenido es un grid, y un grid item arranca con
           // `min-width: auto`, o sea que no baja de su ancho mínimo. Un <select>
           // mide lo que su opción más larga ("3865 · Concepción · Monteros ·
           // Simoca"), así que estiraba la columna entera y el diálogo terminaba
           // 100px más ancho que la pantalla del teléfono.
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none [&>*]:min-w-0 sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none content-start [&>*]:min-w-0 sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className,
         )}
         {...props}
