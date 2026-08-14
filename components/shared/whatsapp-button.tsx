@@ -66,18 +66,33 @@ export function WhatsappButton({
       </button>
 
       {/* Montado solo al abrir: así el texto arranca del `mensaje` de ahora y
-          no del que había la primera vez que se renderizó el botón. */}
+          no del que había la primera vez que se renderizó el botón.
+
+          El `stopPropagation` del wrapper no es de más: un portal de React
+          manda sus eventos por el árbol de COMPONENTES, no por el DOM. Este
+          botón vive dentro de cards clickeables, así que cada click en el
+          diálogo —incluido abrir el select de plantilla— llegaba al onClick de
+          la card y abría la ficha del cliente por detrás.
+
+          `display: contents` para que el wrapper no ocupe lugar en el flex de
+          la card. */}
       {abierto && (
-        <MensajeWhatsappDialog
-          telefonos={telefonos}
-          mensajeInicial={mensaje}
-          datos={datos}
-          reclamo={reclamo}
-          titulo={titulo}
-          descripcion={descripcion}
-          open
-          onOpenChange={setAbierto}
-        />
+        <span
+          className="contents"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <MensajeWhatsappDialog
+            telefonos={telefonos}
+            mensajeInicial={mensaje}
+            datos={datos}
+            reclamo={reclamo}
+            titulo={titulo}
+            descripcion={descripcion}
+            open
+            onOpenChange={setAbierto}
+          />
+        </span>
       )}
     </>
   );
