@@ -3,7 +3,7 @@
 // Este texto sale hacia el cliente por WhatsApp. Un comodín que se reemplaza
 // mal manda un mensaje sin sentido, y no hay forma de despublicarlo.
 import assert from "node:assert/strict";
-import { aplicarPlantilla, COMODINES } from "./plantillas.ts";
+import { aplicarPlantilla, comodinesDesconocidos, COMODINES, EJEMPLO } from "./plantillas.ts";
 
 const datos = {
   cliente: "Juan Pérez",
@@ -49,6 +49,34 @@ assert.equal(aplicarPlantilla("Costo: {} pesos", datos), "Costo: {} pesos");
 for (const c of COMODINES) {
   const resultado = aplicarPlantilla(`{${c.clave}}`, datos);
   assert.notEqual(resultado, `{${c.clave}}`, `el comodín {${c.clave}} se ofrece pero no reemplaza`);
+}
+
+/* ── comodines mal escritos ── */
+
+// Lo que el admin tiene que ver ANTES de mandar: crudos salen igual.
+assert.deepEqual(comodinesDesconocidos("Hola {clientee}, debés {monto}"), ["clientee"]);
+assert.deepEqual(comodinesDesconocidos("Hola {cliente}, debés {monto}"), [], "todos válidos");
+assert.deepEqual(comodinesDesconocidos("sin comodines"), []);
+
+// Repetido se avisa una sola vez: es el mismo error.
+assert.deepEqual(comodinesDesconocidos("{x} y {x} y {x}"), ["x"]);
+
+// Varios distintos salen todos.
+assert.deepEqual(comodinesDesconocidos("{a} {b} {cliente}"), ["a", "b"]);
+
+// Las llaves vacías no son un comodín.
+assert.deepEqual(comodinesDesconocidos("Costo: {} pesos"), []);
+
+/* ── el ejemplo de la vista previa tiene que resolver TODO ── */
+//
+// Si al ejemplo le faltara una clave, la vista previa mostraría el comodín
+// crudo y el admin creería que su plantilla está mal.
+for (const c of COMODINES) {
+  assert.notEqual(
+    aplicarPlantilla(`{${c.clave}}`, EJEMPLO),
+    `{${c.clave}}`,
+    `EJEMPLO no cubre {${c.clave}}: la vista previa lo mostraría crudo`,
+  );
 }
 
 console.log("✓ plantillas OK");

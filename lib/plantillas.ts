@@ -29,6 +29,37 @@ export const COMODINES: { clave: keyof DatosMensaje; ejemplo: string }[] = [
  * sale con `{clientee}` a la vista, se ve el error y se corrige la plantilla.
  * Vaciarlo lo escondería y el cliente recibiría una frase sin sujeto.
  */
+/**
+ * Datos de mentira para la vista previa.
+ *
+ * El admin escribe `{monto}` y no tiene forma de saber cómo va a leerse el
+ * mensaje hasta que se lo manda a alguien. Con esto lo ve mientras escribe.
+ */
+export const EJEMPLO: DatosMensaje = {
+  cliente: "María",
+  monto: "$ 20.000,00",
+  fecha: "10 ago 2026",
+  dias: 5,
+  plan: "Heladera Gafa",
+};
+
+/**
+ * Comodines escritos que no existen.
+ *
+ * `aplicarPlantilla` los deja crudos a propósito —mejor que escribir
+ * "undefined"—, pero crudos igual salen hacia el cliente. Esto los detecta
+ * mientras se escribe la plantilla, que es cuando se pueden arreglar.
+ */
+export function comodinesDesconocidos(mensaje: string): string[] {
+  const validos = new Set<string>(COMODINES.map((c) => c.clave));
+
+  return [...mensaje.matchAll(/\{(\w+)\}/g)]
+    .map((m) => m[1])
+    .filter((clave) => !validos.has(clave))
+    // Sin repetir: si escribió {clientee} tres veces, se avisa una.
+    .filter((clave, i, todos) => todos.indexOf(clave) === i);
+}
+
 export function aplicarPlantilla(mensaje: string, datos: Partial<DatosMensaje>): string {
   return mensaje.replace(/\{(\w+)\}/g, (original, clave: string) => {
     const valor = datos[clave as keyof DatosMensaje];

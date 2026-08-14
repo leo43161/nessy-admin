@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { COMODINES } from "@/lib/plantillas";
+import {
+  aplicarPlantilla,
+  comodinesDesconocidos,
+  COMODINES,
+  EJEMPLO,
+} from "@/lib/plantillas";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   crearPlantilla,
   editarPlantilla,
@@ -59,6 +74,12 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [titulo, setTitulo] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [aBorrar, setABorrar] = useState<Plantilla | null>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+
+  // Cómo va a leerlo el cliente, con datos de mentira.
+  const vistaPrevia = aplicarPlantilla(mensaje, EJEMPLO);
+  const desconocidos = comodinesDesconocidos(mensaje);
 
   const recargar = async () => {
     const lista = await getPlantillas().catch(() => {
@@ -111,14 +132,41 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
     }
   };
 
-  const borrar = async (p: Plantilla) => {
+  const borrar = async () => {
+    if (!aBorrar) return;
     try {
-      await eliminarPlantilla(p.id);
+      await eliminarPlantilla(aBorrar.id);
       toast.success("Plantilla eliminada.");
+      setABorrar(null);
       await recargar();
     } catch {
       toast.error("No se pudo eliminar.");
     }
+  };
+
+  /**
+   * Inserta el comodín donde está el cursor, no al final.
+   *
+   * Al final servía solo si se escribía de corrido: para meter `{monto}` en
+   * medio de una frase ya escrita había que cortar y pegar a mano.
+   */
+  const insertarComodin = (clave: string) => {
+    const el = textarea.current;
+    const marca = `{${clave}}`;
+
+    if (!el) {
+      setMensaje((m) => m + marca);
+      return;
+    }
+
+    const { selectionStart: desde, selectionEnd: hasta } = el;
+    setMensaje((m) => m.slice(0, desde) + marca + m.slice(hasta));
+
+    // El cursor queda después de lo insertado, listo para seguir escribiendo.
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(desde + marca.length, desde + marca.length);
+    });
   };
 
   return (
@@ -146,6 +194,7 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
             <Label htmlFor="plantilla-mensaje">Mensaje</Label>
             <Textarea
               id="plantilla-mensaje"
+              ref={textarea}
               value={mensaje}
               onChange={(e) => setMensaje(e.target.value)}
               rows={5}
@@ -159,7 +208,7 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
                   key={c.clave}
                   type="button"
                   title={c.ejemplo}
-                  onClick={() => setMensaje((m) => `${m}{${c.clave}}`)}
+                  onClick={() => insertarComodin(c.clave)}
                   className="rounded-full border border-input px-2 py-0.5 font-mono text-[0.65rem] text-muted-foreground hover:text-foreground"
                 >
                   {`{${c.clave}}`}
@@ -167,6 +216,32 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
               ))}
             </div>
           </div>
+
+          {/* Un comodín mal escrito sale crudo al chat y no hay forma de
+              deshacerlo: se avisa acá, que es cuando se puede corregir. */}
+          {desconocidos.length > 0 && (
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                {desconocidos.map((c) => `{${c}}`).join(", ")}{" "}
+                {desconocidos.length === 1 ? "no existe" : "no existen"} y se van a mandar tal
+                cual. Usá los de la lista.
+              </span>
+            </p>
+          )}
+
+          {/* Cómo lo va a leer el cliente. El admin escribe {monto} y sin esto
+              no sabe cómo queda hasta que se lo manda a alguien. */}
+          {mensaje.trim() !== "" && (
+            <div className="space-y-1">
+              <div className="text-[0.68rem] font-bold tracking-wider text-muted-foreground uppercase">
+                Así lo recibe el cliente
+              </div>
+              <p className="rounded-lg rounded-bl-none bg-[#25D366]/15 px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap">
+                {vistaPrevia}
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditandoId(null)}>
@@ -210,7 +285,7 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
                         variant="ghost"
                         size="icon-xs"
                         aria-label={`Eliminar ${p.titulo}`}
-                        onClick={() => borrar(p)}
+                        onClick={() => setABorrar(p)}
                       >
                         <Trash2 className="text-destructive" />
                       </Button>
@@ -235,6 +310,23 @@ function Contenido({ onCerrar, onCambio }: { onCerrar: () => void; onCambio?: ()
           </DialogFooter>
         </>
       )}
+
+      {/* Antes el tacho borraba de una. Es baja lógica y no se pierde nada en
+          la base, pero desde el panel no hay forma de recuperarla. */}
+      <AlertDialog open={aBorrar !== null} onOpenChange={(o) => !o && setABorrar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar &quot;{aBorrar?.titulo}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deja de aparecer al mandar mensajes. Los que ya enviaste no se tocan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={borrar}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
