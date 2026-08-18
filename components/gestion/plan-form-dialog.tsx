@@ -220,6 +220,9 @@ function PlanForm({
         nombre: form.nombre.trim(),
         // Lo que se guarda es el total CON interés: es lo que el cliente debe.
         montoTotal: resumen.totalFinanciado,
+        // Y aparte va el capital puro, que es lo que sale de la caja. El
+        // interés no sale: es lo que se va a cobrar de más. Solo en el alta.
+        capitalEntregado: esAlta ? capital : undefined,
         status: form.status,
         cuotas: esAlta ? resumen.cuotas : undefined,
       }),
@@ -227,7 +230,19 @@ function PlanForm({
     setGuardando(false);
 
     if (guardarPlan.fulfilled.match(res)) {
-      toast.success(esAlta ? "Financiación creada" : "Financiación actualizada");
+      // Crear el plan y descontar el capital de la caja son dos operaciones
+      // separadas. Si la segunda falló, el plan igual existe: lo que falta es
+      // el movimiento, y sin él el balance muestra plata disponible que en
+      // realidad ya se prestó. No se puede pasar por alto en silencio.
+      if (res.payload.capitalRegistrado === false) {
+        toast.warning("Financiación creada, pero no se pudo descontar el capital de la caja.", {
+          description:
+            "Cargalo a mano desde Balance → Capital entregado: " + fmtMoney(capital) + ".",
+          duration: 12000,
+        });
+      } else {
+        toast.success(esAlta ? "Financiación creada" : "Financiación actualizada");
+      }
       onCerrar();
     } else {
       toast.error(res.payload ?? "No se pudo guardar.");
@@ -306,7 +321,7 @@ function PlanForm({
         {/* ── Plata ── */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="monto-total">Total *</Label>
+            <Label htmlFor="monto-total">Plata en mano *</Label>
             <Input
               id="monto-total"
               type="number"
@@ -317,6 +332,12 @@ function PlanForm({
               onChange={(e) => set("montoTotal", e.target.value)}
               onWheel={(e) => e.currentTarget.blur()}
             />
+            {/* El campo se llamaba "Total" y siempre fue el capital. Con el
+                balance andando esa confusión cuesta plata: si acá se tipea el
+                monto con interés, el fondo de reinversión se descuenta de más. */}
+            <p className="text-xs text-muted-foreground">
+              Lo que se le entrega al cliente, sin el interés
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="interes">Interés %</Label>

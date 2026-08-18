@@ -374,6 +374,17 @@ export interface PlanPayload {
    * registra en ningún lado (decisión del dueño del proyecto).
    */
   montoTotal: number;
+  /**
+   * La plata que se le entrega EN MANO al cliente, sin el interés.
+   *
+   * El admin ya la tipeaba —es el campo del que sale `montoTotal` aplicándole
+   * el interés— pero se descartaba. Ahora viaja, porque es lo que sale del
+   * fondo de reinversión: el interés no sale de la caja, es lo que se va a
+   * cobrar de más.
+   *
+   * Solo en el alta. En la edición el préstamo ya se entregó.
+   */
+  capitalEntregado?: number;
   status: PlanStatus;
   /** Solo en alta: el cronograma ya calculado, cuota por cuota */
   cuotas?: { fecha: string; monto: number }[];

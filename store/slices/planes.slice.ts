@@ -23,7 +23,11 @@ export const fetchPlanes = createAsyncThunk<PlanListado[], void, { rejectValue: 
   },
 );
 
-export const guardarPlan = createAsyncThunk<PlanListado, PlanPayload, { rejectValue: string }>(
+export const guardarPlan = createAsyncThunk<
+  { plan: PlanListado; capitalRegistrado: boolean | null },
+  PlanPayload,
+  { rejectValue: string }
+>(
   "planes/guardar",
   async (payload, { rejectWithValue }) => {
     try {
@@ -64,9 +68,10 @@ const planesSlice = createSlice({
         state.error = action.payload ?? "Error al cargar planes.";
       })
       .addCase(guardarPlan.fulfilled, (state, action) => {
-        const idx = state.items.findIndex((p) => p.id === action.payload.id);
-        if (idx >= 0) state.items[idx] = action.payload;
-        else state.items.unshift(action.payload);
+        const { plan } = action.payload;
+        const idx = state.items.findIndex((p) => p.id === plan.id);
+        if (idx >= 0) state.items[idx] = plan;
+        else state.items.unshift(plan);
       })
       .addCase(eliminarPlan.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);

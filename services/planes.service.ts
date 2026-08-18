@@ -39,20 +39,33 @@ export async function getPlanes(): Promise<PlanListado[]> {
  * La API devuelve el id, no el plan armado, así que se relee para que el store
  * reciba la fila con el cliente y el avance de cuotas ya cruzados.
  */
-export async function guardarPlan(payload: PlanPayload): Promise<PlanListado> {
+export async function guardarPlan(
+  payload: PlanPayload,
+): Promise<{ plan: PlanListado; capitalRegistrado: boolean | null }> {
   // En la edición el cronograma no se toca: las cuotas ya existen y varias
   // pueden estar cobradas.
   const cuerpo = dePlan(payload.id ? { ...payload, cuotas: undefined } : payload);
 
   const { data } = payload.id
     ? await api.put<{ id_Plan_de_pagos: number }>("/planes", cuerpo)
-    : await api.post<{ id_Plan_de_pagos: number }>("/planes", cuerpo);
+    : await api.post<{ id_Plan_de_pagos: number; capital_registrado: boolean | null }>(
+        "/planes",
+        cuerpo,
+      );
 
   const planes = await getPlanes();
   const guardado = planes.find((p) => p.id === data.id_Plan_de_pagos);
   if (!guardado) throw new Error("El plan se guardó pero no se pudo releer.");
 
-  return guardado;
+  // El descuento del capital y la creación del plan son dos operaciones
+  // separadas —así se decidió—, así que la API avisa si la segunda falló. El
+  // plan existe igual: lo que falta es el movimiento de caja, y eso hay que
+  // cargarlo a mano o el balance queda mostrando plata que ya se prestó.
+  return {
+    plan: guardado,
+    capitalRegistrado:
+      (data as { capital_registrado?: boolean | null }).capital_registrado ?? null,
+  };
 }
 
 /** Baja lógica: Activo = 0. Nunca se borra (el historial de pagos queda). */
