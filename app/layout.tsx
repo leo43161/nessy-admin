@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { DM_Sans, Space_Mono } from "next/font/google";
+import { Archivo, Space_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { StoreProvider } from "@/components/providers/store-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { EMPRESA_NOMBRE } from "@/lib/marca";
 import "./globals.css";
 
-// Las mismas familias de la maqueta: DM Sans para texto, Space Mono para
-// montos (los números tabulares alinean las columnas de plata).
-const dmSans = DM_Sans({
+// Archivo es la tipografía de marca de Preferenciale (brand sheet, sección 05):
+// va en toda la interfaz. Space Mono queda para los montos, porque sus números
+// son tabulares y alinean las columnas de plata — Archivo no lo hace.
+const archivo = Archivo({
   variable: "--font-sans",
   subsets: ["latin"],
+  // Los pesos que define el brand sheet.
+  weight: ["400", "500", "600", "700"],
 });
 
 const spaceMono = Space_Mono({
@@ -19,7 +23,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NessyAdmin — Panel de Cobranzas",
+  title: `${EMPRESA_NOMBRE} — Panel de Cobranzas`,
   description: "Supervisión de cobranzas y gestión de clientes y financiaciones",
 };
 
@@ -32,7 +36,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={`${dmSans.variable} ${spaceMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>

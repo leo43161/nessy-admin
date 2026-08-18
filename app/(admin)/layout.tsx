@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { restoreSession } from "@/store/slices/auth.slice";
 import { initRango } from "@/store/slices/ui.slice";
 import { fetchCobradores } from "@/store/slices/admin.slice";
+import { RANURA_ACCIONES } from "@/components/shared/acciones-fab";
 
 /**
  * Shell del panel: restaura la sesión guardada y el filtro de fecha antes de
@@ -52,6 +53,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Topbar />
       <main className="pb-24 sm:pb-8">{children}</main>
       <NavTabs />
+
+      {/* Hueco del botón de acciones (AccionesFab se dibuja acá por portal).
+          Va en el layout y no en cada pantalla porque dónde entra depende del
+          armazón: en el teléfono la navegación es una barra al pie de 56 px y
+          el botón tiene que quedar arriba de ella; desde `sm` la navegación
+          pasa a ser la franja lateral de 72 px y abajo queda libre.
+          `pointer-events-none` para que el hueco no tape los clics del listado
+          que hay detrás; el botón se los devuelve. */}
+      <div
+        id={RANURA_ACCIONES}
+        className="pointer-events-none fixed bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] left-0 z-50 pl-4 sm:bottom-6 sm:left-18"
+      />
     </div>
   );
 }

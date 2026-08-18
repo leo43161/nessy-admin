@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "node lib/agregados.check.ts && node services/mapear.check.ts && node lib/coordenadas.check.ts && node lib/telefonos.check.ts && node lib/cuotas.check.ts && node lib/periodos.check.ts && node lib/cumplimiento.check.ts && node lib/plantillas.check.ts"
+    "check": "node lib/reestructura.check.ts && node lib/estado-cuenta-por-plan.check.ts && node lib/agregados.check.ts && node services/mapear.check.ts && node lib/coordenadas.check.ts && node lib/telefonos.check.ts && node lib/cuotas.check.ts && node lib/periodos.check.ts && node lib/cumplimiento.check.ts && node lib/plantillas.check.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.6.0",

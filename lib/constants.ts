@@ -1,4 +1,9 @@
-export const APP_NAME = "NessyAdmin";
+/**
+ * Cómo se llama esta app PARA ADENTRO. Lo que ve el cliente sale de
+ * `lib/marca.ts` (EMPRESA_NOMBRE): esto es solo para distinguir las dos apps
+ * en textos internos, como el aria-label de cerrar sesión.
+ */
+export const APP_NAME = "Panel admin";
 
 // Claves de almacenamiento local. Llevan prefijo `na_` (no `gc_`) para que la
 // app del cobrador y la del admin puedan convivir en el mismo navegador
