@@ -209,3 +209,62 @@ export async function getDeudaPendiente(planId: number): Promise<CorteDeDeuda> {
     cuotas: impagas.length,
   };
 }
+
+// ════════════════════════════════════════════════════════════════
+//  Editar el cronograma de un plan en curso
+// ════════════════════════════════════════════════════════════════
+
+export interface CuotaDelPlan {
+  id: number;
+  fecha: string;
+  monto: number;
+  estado: string;
+  /** Solo las pendientes se pueden mover: las pagadas y atrasadas no se tocan */
+  editable: boolean;
+}
+
+/**
+ * Las cuotas de un plan, tal como están hoy.
+ *
+ * `editable` sale del estado: **la API solo reprograma las `Pendiente`**. Una
+ * pagada es historia y una atrasada conserva su fecha original, que es de donde
+ * sale el cálculo de la mora — moverla borraría el rastro del atraso.
+ */
+export async function getCuotasDelPlan(planId: number): Promise<CuotaDelPlan[]> {
+  const { data } = await api.get<{
+    planes: (FilaPlan & {
+      cuotas?: { id_Pagos_por_realizar: number; fecha_acordada: string; Monto_esperado: string; Estado: string }[];
+    })[];
+  }>("/planes", { params: { id: planId } });
+
+  return (data.planes[0]?.cuotas ?? []).map((c) => ({
+    id: c.id_Pagos_por_realizar,
+    fecha: c.fecha_acordada,
+    monto: aNumero(c.Monto_esperado),
+    estado: c.Estado,
+    editable: c.Estado === "Pendiente",
+  }));
+}
+
+/**
+ * Reemplaza el cronograma pendiente de un plan.
+ *
+ * ⚠️ **Hay que mandar el cronograma pendiente COMPLETO**, no solo lo que
+ * cambia: la API da de baja todas las pendientes y carga estas en su lugar.
+ *
+ * Van los montos uno por uno y no un monto único: un cronograma donde la
+ * última cuota absorbe los centavos de la división dejaría de cerrar en el
+ * total si se aplanara con un solo valor.
+ */
+export async function reprogramarCuotas(
+  planId: number,
+  cuotas: { fecha: string; monto: number }[],
+): Promise<CuotaDelPlan[]> {
+  await api.put("/cuotas", {
+    id_plan: planId,
+    fechas: cuotas.map((c) => c.fecha),
+    montos: cuotas.map((c) => c.monto),
+  });
+
+  return getCuotasDelPlan(planId);
+}
