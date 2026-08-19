@@ -142,7 +142,7 @@ export interface EstadisticasHistoricas {
   clientesMorosos: FilaClienteMoroso[];
   rankingRecaudacion: FilaRecaudacion[];
   morosidadCobradores: FilaMorosidad[];
-  /** Vacío hasta que se aplique sql/fix_estadisticas_clientes_nuevos.sql: el
+  /** Vacío hasta que se aplique sql/fix_estadisticas_y_cierre.sql: el
    *  bloque existe en el SP pero un 1054 en el bloque 9 cortaba el CALL antes. */
   metodos: FilaMetodoDePago[];
 }
