@@ -105,18 +105,20 @@ export function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
     });
   }
 
-  if (plan.proximaCuota) {
-    filas.push({
-      fecha: "",
-      concepto: "PROXIMA CUOTA A VENCER",
-      cuota: String(plan.cuotasPagadas + 1),
-      vencimiento: fechaCorta(plan.proximaCuota.fecha),
-      debito: plan.proximaCuota.monto,
-      credito: null,
-      saldo,
-      alarma: false,
-    });
-  }
+  // Sin fila de "PROXIMA CUOTA A VENCER". Repetía al pie una cuota que ya
+  // estaba listada arriba —la primera pendiente— y lo hacía con dos errores:
+  //
+  //  · La numeraba `cuotasPagadas + 1`. Con cuotas atrasadas eso no es la
+  //    próxima: un plan con 0 pagadas y 3 atrasadas la anunciaba como "cuota
+  //    1", que es justamente la más vieja de las que se deben.
+  //  · Le ponía el importe en DEBITOS sin tocar el saldo. En este asiento el
+  //    plan se debita ENTERO en el alta, así que ninguna cuota debita por su
+  //    cuenta: con esa fila la columna DEBITOS dejaba de sumar el saldo y el
+  //    cliente que hace la cuenta a mano no le daba.
+  //
+  // No se pierde nada: las cuotas pendientes están en la tabla, en orden y
+  // con su fecha de vencimiento. El resumen de WhatsApp sí sigue usando
+  // `plan.proximaCuota` — ahí no hay columnas que cuadrar.
 
   return filas;
 }

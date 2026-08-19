@@ -108,4 +108,30 @@ assert.deepEqual(
   "el orden de entrada no puede cambiar el saldo corrido",
 );
 
+// ── La columna DEBITOS tiene que sumar el saldo ───────────────────────────
+//
+// Es la cuadratura del extracto: el plan se debita entero en el alta y cada
+// recargo suma; los créditos restan. Si la columna no cuadra, el cliente que
+// hace la cuenta a mano no le da y llama.
+//
+// Acá se cayó la fila "PROXIMA CUOTA A VENCER": repetía al pie una cuota que
+// ya estaba listada arriba, con su importe en DEBITOS pero sin mover el
+// saldo. Y la numeraba `cuotasPagadas + 1`, que con cuotas atrasadas no es la
+// próxima sino la más vieja de las que se deben.
+const suma = (f: (a: (typeof conRecargo)[number]) => number | null) =>
+  conRecargo.reduce((s, a) => s + (f(a) ?? 0), 0);
+
+assert.equal(
+  suma((a) => a.debito) - suma((a) => a.credito),
+  CON_RECARGO.pendiente,
+  "debitos - creditos tiene que dar el saldo pendiente",
+);
+
+// Con cuotas atrasadas, ninguna fila puede anunciar una cuota que ya venció
+// como si fuera la que viene.
+assert.ok(
+  !filas.some((f) => f.concepto.includes("PROXIMA")),
+  "el asiento no repite la próxima cuota: ya está en la tabla",
+);
+
 console.log("✓ asientos.ts OK");
