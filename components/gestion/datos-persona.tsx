@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImagenInput } from "@/components/gestion/imagen-input";
 import { useLocalidades } from "@/hooks/use-catalogos";
 import { LOCALIDAD_POR_DEFECTO } from "@/lib/constants";
 import type { DatosPersona } from "@/types";
@@ -129,12 +130,11 @@ export function DatosPersonaFields({
         </div>
       )}
 
-      {/* `img` es varchar(255): la base guarda la RUTA, no el archivo, y no hay
-          endpoint de subida. Hasta que lo haya, se pega un link. */}
-      {texto("img", "Foto (link)", {
-        type: "url",
-        placeholder: "https://…",
-      })}
+      {/* `img` es varchar(255): la base guarda la RUTA y el archivo vive en el
+          servidor. La subida la hace el propio componente contra
+          `POST /imagenes/subir` y acá solo queda dónde quedó. */}
+      <ImagenInput valor={valores.img} onChange={(ruta) => set("img", ruta)} />
+
     </>
   );
 }

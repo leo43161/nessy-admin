@@ -211,7 +211,7 @@ export function ClienteDetailDialog({
             <>
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <InitialsAvatar nombre={data.cliente.nombreCompleto} size="md" />
+                  <InitialsAvatar nombre={data.cliente.nombreCompleto} img={data.cliente.img} size="md" />
                   <div className="min-w-0 text-left">
                     <DialogTitle className="truncate">{data.cliente.nombreCompleto}</DialogTitle>
                     <DialogDescription className="font-mono">
