@@ -37,10 +37,10 @@ jobs:
       - name: Build static site
         run: npm run build
         env:
-          # La app se sirve en tucucompras.com.ar/nessyadmin/, no en la raíz.
+          # La app se sirve en tucucompras.com.ar/preferenciale/, no en la raíz.
           # Sin esto el HTML pide los assets a /_next/... (raíz del dominio),
           # que es la carpeta de OTRO proyecto: la página carga en blanco.
-          NEXT_PUBLIC_BASE_PATH: /nessyadmin
+          NEXT_PUBLIC_BASE_PATH: /preferenciale
           # .env.local está en .gitignore, así que las variables del build
           # tienen que venir de acá o el bundle sale apuntando al mock.
           NEXT_PUBLIC_API_URL: https://tucucompras.com.ar/fv1
@@ -68,7 +68,7 @@ jobs:
           port: 21
           security: loose # DonWeb usa certificados autofirmados en FTP
           local-dir: ./upload_dir/
-          server-dir: /public_html/nessyadmin/
+          server-dir: /public_html/preferenciale/
 
       - name: Trigger unzip on server
-        run: curl --fail "https://tucucompras.com.ar/nessyadmin/extract.php?secret=${{ secrets.UNZIP_SECRET }}"
+        run: curl --fail "https://tucucompras.com.ar/preferenciale/extract.php?secret=${{ secrets.UNZIP_SECRET }}"
