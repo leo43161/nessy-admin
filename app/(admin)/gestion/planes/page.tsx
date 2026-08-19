@@ -34,6 +34,7 @@ import {
   ReestructuraDialog,
   type Escenario,
 } from "@/components/gestion/reestructura-dialog";
+import { CuotasDialog } from "@/components/gestion/cuotas-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +83,8 @@ export default function GestionPlanesPage() {
   const [aReestructurar, setAReestructurar] = useState<PlanListado | null>(null);
   const [escenario, setEscenario] = useState<Escenario>("refinanciar");
   const [reestructuraAbierta, setReestructuraAbierta] = useState(false);
+  const [cuotasDe, setCuotasDe] = useState<PlanListado | null>(null);
+  const [cuotasAbiertas, setCuotasAbiertas] = useState(false);
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchPlanes());
@@ -287,6 +290,13 @@ export default function GestionPlanesPage() {
       />
 
       <PlanFormDialog plan={editando} open={formAbierto} onOpenChange={setFormAbierto} />
+
+      <CuotasDialog
+        plan={cuotasDe}
+        open={cuotasAbiertas}
+        onOpenChange={setCuotasAbiertas}
+        onHecho={() => dispatch(fetchPlanes())}
+      />
 
       <ReestructuraDialog
         plan={aReestructurar}

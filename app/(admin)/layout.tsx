@@ -51,7 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // final del listado) y como franja a la izquierda desde `sm` (pl-18).
     <div className="min-h-screen bg-background sm:pl-18">
       <Topbar />
-      <main className="pb-24 sm:pb-8">{children}</main>
+      {/* El colchón de abajo tiene que despejar DOS cosas fijas: la barra de
+          navegación y el botón de opciones que flota encima de ella. En el
+          teléfono eso son 56 px de barra + 68 px de botón; desde `sm` la
+          navegación pasa al costado y solo queda el botón. Con menos, la
+          última fila de cualquier listado queda cortada y no hay forma de
+          scrollear para verla. */}
+      <main className="pb-36 sm:pb-24">{children}</main>
       <NavTabs />
 
       {/* Hueco del botón de acciones (AccionesFab se dibuja acá por portal).
