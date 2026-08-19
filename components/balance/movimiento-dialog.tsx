@@ -158,7 +158,7 @@ export function MovimientoDialog({
           </Button>
           <Button onClick={confirmar} disabled={!puedeGuardar}>
             {guardando && <Loader2 className="animate-spin" />}
-            {guardando ? "Guardando…" : `Registrar ${fmtMoney(montoNum)}`}
+            {guardando ? "Guardando…" : montoNum > 0 ? `Registrar ${fmtMoney(montoNum)}` : "Registrar"}
           </Button>
         </DialogFooter>
       </DialogContent>
