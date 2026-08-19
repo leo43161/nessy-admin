@@ -13,6 +13,7 @@ import {
   distribucionDeEstados,
   esApoyo,
   estadoVisible,
+  cuotasEnDeuda,
   METODO_EFECTIVO,
   performancePorCobrador,
   totalesPorMetodo,
@@ -276,3 +277,39 @@ assert.equal(
 );
 
 console.log("✓ agregados.ts — todos los chequeos pasan");
+
+// ── El cartel de deuda no puede contar lo que todavía no venció ───────────
+//
+// El cobrador puede marcar "no pude cobrar" ANTES del vencimiento: pasó, el
+// cliente no estaba, y lo deja registrado. Esa cuota queda `Atrasado` con
+// fecha futura.
+//
+// Se vio en producción: una cuota que vencía en 7 días sumaba al cartel
+// "6 cuotas en deuda · $ 210.000" y mostraba "-7 días" al lado.
+const atrasadaFutura = { ...cuota(1, "Atrasado", "2026-06-20", 30_000), whatsappEnviado: true };
+const atrasadaVencida = cuota(1, "Atrasado", "2026-06-05", 30_000);
+const vencidaSinVisitar = cuota(1, "Pendiente", "2026-06-01", 30_000);
+const alDia = cuota(1, "Pendiente", "2026-06-30", 30_000);
+
+const deuda = cuotasEnDeuda([atrasadaFutura, atrasadaVencida, vencidaSinVisitar, alDia], HOY);
+
+assert.equal(deuda.length, 2, "solo las dos que ya vencieron");
+assert.ok(
+  !deuda.some((c) => c.id === atrasadaFutura.id),
+  "una atrasada con fecha futura no es deuda todavía",
+);
+assert.equal(
+  deuda.reduce((s, c) => s + c.montoEsperado, 0),
+  60_000,
+  "el total no puede inflarse con una cuota que no venció",
+);
+assert.deepEqual(
+  deuda.map((c) => c.fechaAcordada),
+  ["2026-06-01", "2026-06-05"],
+  "de la más vieja a la más nueva: primero lo que más urge",
+);
+
+// La del día de hoy sí cuenta si no se cobró: venció hoy.
+assert.equal(cuotasEnDeuda([cuota(1, "Atrasado", HOY, 10_000)], HOY).length, 1);
+
+console.log("✓ agregados.ts — el cartel de deuda solo cuenta lo vencido");

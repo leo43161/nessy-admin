@@ -68,6 +68,29 @@ export function estadoVisible(cobro: CobroDelDia, hoy: string): EstadoVisible {
   return cobro.estado as EstadoVisible;
 }
 
+/**
+ * Las cuotas que son DEUDA hoy: sin cobrar y con la fecha ya cumplida.
+ *
+ * El filtro de la fecha no es redundante con el estado. El cobrador puede
+ * marcar "no pude cobrar" **antes** del vencimiento —pasó, el cliente no
+ * estaba, y lo deja registrado—, y esa cuota queda `Atrasado` con fecha
+ * futura. Sin esta comprobación entraba en el cartel de deuda: se vio en
+ * producción una cuota que vencía en 7 días sumando al total de "6 cuotas en
+ * deuda · $ 210.000" y mostrando "-7 días" al lado.
+ *
+ * Sigue apareciendo en la columna del cobrador con su chip de atrasada, que
+ * es donde tiene que estar: hubo gestión, pero todavía no hay deuda.
+ */
+export function cuotasEnDeuda(cobros: CobroDelDia[], hoy: string): CobroDelDia[] {
+  return cobros
+    .filter((c) => c.fechaAcordada <= hoy)
+    .filter((c) => {
+      const estado = estadoVisible(c, hoy);
+      return estado !== "Pagado" && estado !== "Pendiente";
+    })
+    .sort((a, b) => a.fechaAcordada.localeCompare(b.fechaAcordada));
+}
+
 /** Una cuota la cobró alguien distinto del cobrador asignado (apoyo) */
 export function esApoyo(cobro: CobroDelDia): boolean {
   return cobro.cobradoPorId !== null && cobro.cobradoPorId !== cobro.cobradorAsignadoId;

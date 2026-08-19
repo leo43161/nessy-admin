@@ -5,7 +5,7 @@ import { ChevronDown, MessageCircle, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtMoney, formatFecha } from "@/lib/format";
 import { diasEntre, textoAtraso } from "@/lib/cuotas";
-import { estadoVisible } from "@/lib/agregados";
+import { cuotasEnDeuda } from "@/lib/agregados";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import type { CobroDelDia } from "@/types";
 
@@ -32,9 +32,7 @@ export function AvisoAtrasos({
 }) {
   const [abierto, setAbierto] = useState(false);
 
-  const vencidas = cobros
-    .filter((c) => estadoVisible(c, hoy) !== "Pagado" && estadoVisible(c, hoy) !== "Pendiente")
-    .sort((a, b) => a.fechaAcordada.localeCompare(b.fechaAcordada));
+  const vencidas = cuotasEnDeuda(cobros, hoy);
 
   if (vencidas.length === 0) return null;
 
@@ -98,9 +96,11 @@ export function AvisoAtrasos({
                       </span>
                     )}
                   </div>
+                  {/* Vía `textoAtraso` y no `{dias} días` a secas: escribía
+                      "-7 días" cuando la cuota todavía no había vencido. */}
                   <div className="font-mono text-[0.65rem] text-muted-foreground">
-                    {fmtMoney(c.montoEsperado)} · {formatFecha(c.fechaAcordada)} · {dias}{" "}
-                    {dias === 1 ? "día" : "días"}
+                    {fmtMoney(c.montoEsperado)} · {formatFecha(c.fechaAcordada)} ·{" "}
+                    {textoAtraso(dias)}
                   </div>
                 </div>
 
