@@ -129,6 +129,7 @@ export function AvisoAtrasos({
                       c.estado === "Atrasado"
                         ? {
                             cuotaId: c.id,
+                            planId: c.planId,
                             clienteId: c.cliente.id,
                             clienteNombre: c.cliente.nombreCompleto,
                             clienteDni: c.cliente.dni,

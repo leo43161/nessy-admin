@@ -32,6 +32,16 @@ import type { Telefono } from "@/types";
  */
 export interface Reclamo {
   cuotaId: number;
+  /**
+   * El plan al que pertenece la cuota que se reclama.
+   *
+   * El PDF sale de ESE plan y no de la cuenta entera. Un cliente con dos
+   * financiaciones recibía un reclamo por una cuota de $30.000 con un
+   * comprobante que mostraba el saldo de las dos —y el texto del mensaje
+   * decía otro número—: dos cifras distintas en el mismo reclamo, y el
+   * cliente no paga ninguna.
+   */
+  planId: number;
   clienteId: number;
   clienteNombre: string;
   clienteDni: string;
@@ -138,6 +148,10 @@ export function MensajeWhatsappDialog({
           localidadNombre: null,
         },
         LEYENDA_RECLAMO,
+        // Solo el plan de la cuota que se reclama. Antes iba la cuenta entera:
+        // se reclamaba una cuota de una financiación y el comprobante mostraba
+        // el saldo de todas.
+        reclamo.planId,
       );
 
       const salio = await enviarEstadoCuenta(archivo, texto, numero, descargarArchivo);

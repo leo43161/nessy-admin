@@ -90,6 +90,7 @@ export function CuotaCard({
             reclamoPendiente
               ? {
                   cuotaId: cobro.id,
+                  planId: cobro.planId,
                   clienteId: cobro.cliente.id,
                   clienteNombre: cobro.cliente.nombreCompleto,
                   clienteDni: cobro.cliente.dni,
