@@ -30,8 +30,13 @@ import { PlanFormDialog } from "@/components/gestion/plan-form-dialog";
 import { ReferentesCliente } from "@/components/gestion/referentes-cliente";
 import { CobroDialog, type CuotaACobrar } from "@/components/gestion/cobro-dialog";
 import { cn } from "@/lib/utils";
-import { fmtMoney, formatFecha, mapaUrl } from "@/lib/format";
-import { estadoDeCuentaToText, LEYENDA_RECLAMO, reclamoToText } from "@/lib/estado-cuenta";
+import { fmtMoney, formatFecha, mapaUrl, todayISO } from "@/lib/format";
+import {
+  estadoDeCuentaToText,
+  etiquetaCuotaPendiente,
+  LEYENDA_RECLAMO,
+  reclamoToText,
+} from "@/lib/estado-cuenta";
 import { enviarEstadoCuenta } from "@/lib/compartir";
 import { soloElPlan } from "@/lib/estado-cuenta-por-plan";
 import { PLAN_STATUS_BADGE } from "@/lib/status";
@@ -379,7 +384,11 @@ export function ClienteDetailDialog({
                           {plan.proximaCuota && (
                             <>
                               <br />
-                              Próxima: {formatFecha(plan.proximaCuota.fecha)} ·{" "}
+                              {/* La primera impaga puede ser de hace meses:
+                                  llamarla "próxima" esconde justo lo que hay
+                                  que salir a cobrar. */}
+                              {etiquetaCuotaPendiente(plan.proximaCuota.fecha, todayISO())}:{" "}
+                              {formatFecha(plan.proximaCuota.fecha)} ·{" "}
                               <span className="font-mono">
                                 {fmtMoney(plan.proximaCuota.monto)}
                               </span>
