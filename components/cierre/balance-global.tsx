@@ -12,7 +12,7 @@ export function BalanceGlobal({ balance }: { balance: BalancePeriodo }) {
   ];
 
   return (
-    <div className="relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-primary-dark via-primary to-sky p-5">
+    <div className="relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-primary-dark via-primary to-acento p-5">
       {/* Círculos decorativos de la maqueta */}
       <div className="pointer-events-none absolute -top-8 -right-8 size-30 rounded-full bg-white/6" />
       <div className="pointer-events-none absolute -bottom-5 -left-5 size-20 rounded-full bg-white/4" />

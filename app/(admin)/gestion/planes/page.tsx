@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Eraser,
+  FilePlus2,
+  Pencil,
+  Plus,
+  RefreshCcwDot,
+  RefreshCw,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,20 +30,58 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { SectionHeader } from "@/components/shared/section-header";
 import { PlanFormDialog } from "@/components/gestion/plan-form-dialog";
+import {
+  ReestructuraDialog,
+  type Escenario,
+} from "@/components/gestion/reestructura-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { fmtMoney } from "@/lib/format";
 import { PLAN_STATUS_BADGE } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { eliminarPlan, fetchPlanes } from "@/store/slices/planes.slice";
+import { AccionesFab } from "@/components/shared/acciones-fab";
 import type { PlanListado } from "@/types";
+
+/**
+ * Los tres escenarios, con el nombre que usa el negocio y una línea de qué
+ * hace cada uno. Sin la ayuda, "renovar" y "reestructurar" se confunden: los
+ * dos suenan a "cambiar las cuotas" y hacen cosas muy distintas con la plata.
+ */
+const ESCENARIOS: { id: Escenario; label: string; ayuda: string }[] = [
+  {
+    id: "refinanciar",
+    label: "Refinanciar",
+    ayuda: "Dejó de pagar: se recalcula la deuda con penalización",
+  },
+  {
+    id: "renovar",
+    label: "Renovar",
+    ayuda: "Prestarle más plata, acoplada al final del plan",
+  },
+  {
+    id: "reestructurar",
+    label: "Reestructurar cuotas",
+    ayuda: "La misma deuda, en cuotas de otro tamaño",
+  },
+];
 
 export default function GestionPlanesPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { items, status, error } = useAppSelector((s) => s.planes);
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<PlanListado | null>(null);
   const [formAbierto, setFormAbierto] = useState(false);
   const [aEliminar, setAEliminar] = useState<PlanListado | null>(null);
+  const [aReestructurar, setAReestructurar] = useState<PlanListado | null>(null);
+  const [escenario, setEscenario] = useState<Escenario>("refinanciar");
+  const [reestructuraAbierta, setReestructuraAbierta] = useState(false);
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchPlanes());
@@ -45,6 +94,12 @@ export default function GestionPlanesPage() {
       (p) => p.clienteNombre.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q),
     );
   }, [items, busqueda]);
+
+  function abrirReestructura(plan: PlanListado, cual: Escenario) {
+    setAReestructurar(plan);
+    setEscenario(cual);
+    setReestructuraAbierta(true);
+  }
 
   function abrirAlta() {
     setEditando(null);
@@ -122,6 +177,33 @@ export default function GestionPlanesPage() {
                   </div>
 
                   <div className="flex shrink-0 gap-1">
+                    {/* Los tres escenarios que reescriben el cronograma. Van
+                        en un menú y no en tres botones sueltos: son acciones
+                        raras y pesadas, y no tienen que competir por el ojo
+                        con editar y dar de baja. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Refinanciar o renovar la financiación de ${plan.clienteNombre}`}
+                        >
+                          <RefreshCcwDot />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-72! p-1.5">
+                        {ESCENARIOS.map((e) => (
+                          <DropdownMenuItem
+                            key={e.id}
+                            className="flex-col items-start gap-0.5 rounded-lg px-3 py-2.5"
+                            onSelect={() => abrirReestructura(plan, e.id)}
+                          >
+                            <span className="text-base font-semibold">{e.label}</span>
+                            <span className="text-sm text-muted-foreground">{e.ayuda}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -159,7 +241,7 @@ export default function GestionPlanesPage() {
                   className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary"
                 >
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-sky"
+                    className="h-full rounded-full bg-gradient-to-r from-primary to-acento"
                     style={{ width: `${avance}%` }}
                   />
                 </div>
@@ -172,7 +254,47 @@ export default function GestionPlanesPage() {
         )}
       </div>
 
+      <AccionesFab
+        acciones={[
+          {
+            label: "Crear una financiación nueva",
+            descripcion: "Plan de pagos con sus cuotas",
+            icon: <FilePlus2 />,
+            onSelect: abrirAlta,
+          },
+          {
+            label: "Limpiar la búsqueda",
+            descripcion: "Vuelve a mostrar todas las financiaciones",
+            icon: <Eraser />,
+            onSelect: () => setBusqueda(""),
+            disabled: busqueda === "",
+          },
+          {
+            label: "Actualizar la lista",
+            descripcion: "Vuelve a traer los planes del servidor",
+            icon: <RefreshCw />,
+            onSelect: () => dispatch(fetchPlanes()),
+            disabled: cargando,
+          },
+          {
+            label: "Ir a los clientes",
+            descripcion: "Alta, edición y ficha de cada cliente",
+            icon: <Users />,
+            onSelect: () => router.push("/gestion/clientes"),
+            separar: true,
+          },
+        ]}
+      />
+
       <PlanFormDialog plan={editando} open={formAbierto} onOpenChange={setFormAbierto} />
+
+      <ReestructuraDialog
+        plan={aReestructurar}
+        escenario={escenario}
+        open={reestructuraAbierta}
+        onOpenChange={setReestructuraAbierta}
+        onHecho={() => dispatch(fetchPlanes())}
+      />
 
       <AlertDialog open={aEliminar !== null} onOpenChange={(o) => !o && setAEliminar(null)}>
         <AlertDialogContent>

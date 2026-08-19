@@ -1,11 +1,13 @@
-import { Document, Image, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
 import { fmtMoney, formatFecha } from "@/lib/format";
 import { calcularCumplimiento } from "@/lib/cumplimiento";
-import { EMPRESA_LOGO, EMPRESA_NOMBRE, EMPRESA_PIE } from "@/lib/marca";
+import { EMPRESA_NOMBRE, EMPRESA_PIE, MARCA_COLORES } from "@/lib/marca";
+import { IsotipoPdf } from "@/lib/pdf/isotipo-pdf";
+import { soloElPlan } from "@/lib/estado-cuenta-por-plan";
 import type { EstadoDeCuenta, EstadoDeCuentaPlan } from "@/types";
 
-// El nombre y el logo salen de `lib/marca.ts`: es el único archivo que hay que
-// tocar para cambiarlos, acá y en la app del cobrador.
+// El nombre, el logo y los colores salen de `lib/marca.ts`: es el único archivo
+// que hay que tocar para cambiarlos, acá y en la app del cobrador.
 
 /** Datos del cliente que no vienen en EstadoDeCuenta pero sí en el encabezado */
 export interface EstadoCuentaPdfCliente {
@@ -22,58 +24,106 @@ export interface EstadoCuentaPdfCliente {
  */
 const LEYENDA_DEFAULT = `Gracias por mantener tu plan al día.\n${EMPRESA_PIE}`;
 
+/**
+ * El documento lo leen personas grandes, muchas veces impreso y a contraluz en
+ * la puerta de la casa. Los tamaños de antes —la tabla a 7 pt, el pie a 6.2—
+ * eran ilegibles: acá todo subió y lo que importa además va en negrita.
+ *
+ * Las fuentes son las built-in del PDF (Courier / Helvetica) a propósito.
+ * Archivo, la tipografía de marca, obligaría a `Font.register()` con el .ttf
+ * embebido en cada generación, y en un extracto de cuenta no se nota. La marca
+ * la ponen el isotipo y los colores.
+ */
 const styles = StyleSheet.create({
   page: {
     paddingTop: 34,
-    paddingBottom: 54,
+    paddingBottom: 62,
     paddingHorizontal: 34,
     fontFamily: "Courier",
-    fontSize: 7,
-    color: "#000",
+    fontSize: 9,
+    color: MARCA_COLORES.primario,
   },
 
   // ── Encabezado ──
-  encabezado: { flexDirection: "row", alignItems: "center", gap: 8 },
-  logoImg: { width: 30, height: 30, objectFit: "contain" },
-  logo: { fontFamily: "Helvetica-Bold", fontSize: 19, color: "#0d4f8b", letterSpacing: -0.4 },
+  encabezado: { flexDirection: "row", alignItems: "center", gap: 9 },
+  logo: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 23,
+    color: MARCA_COLORES.primario,
+    letterSpacing: -0.4,
+  },
 
   // Comportamiento de pago
-  cumplimiento: { marginTop: 18, borderWidth: 0.7, borderColor: "#0d4f8b", padding: 8 },
-  cumplimientoTitulo: { fontFamily: "Helvetica-Bold", fontSize: 8, color: "#0d4f8b" },
-  cumplimientoFila: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
-  cumplimientoLabel: { fontSize: 7.5 },
-  cumplimientoValor: { fontFamily: "Helvetica-Bold", fontSize: 7.5 },
-  advertenciaFila: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
-  advertenciaTexto: { fontSize: 7, color: "#8b1a1a" },
+  cumplimiento: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: MARCA_COLORES.primario,
+    padding: 10,
+  },
+  cumplimientoTitulo: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10.5,
+    color: MARCA_COLORES.acento,
+    letterSpacing: 0.6,
+  },
+  cumplimientoFila: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
+  cumplimientoLabel: { fontSize: 9.5 },
+  cumplimientoValor: { fontFamily: "Helvetica-Bold", fontSize: 9.5 },
   paginaBox: { position: "absolute", top: 34, right: 34, alignItems: "flex-end" },
-  paginaLabel: { fontSize: 7 },
+  paginaLabel: { fontSize: 8.5 },
 
-  destinatario: { marginTop: 46, flexDirection: "row", justifyContent: "space-between" },
-  srEs: { fontSize: 7 },
-  bloqueDir: { marginLeft: 28, marginTop: 2 },
-  nombreDest: { fontFamily: "Courier-BoldOblique", fontSize: 8.5 },
-  lineaDir: { fontFamily: "Courier-BoldOblique", fontSize: 8.5 },
-  docLinea: { marginTop: 6, marginLeft: 10, fontSize: 7 },
+  destinatario: { marginTop: 42, flexDirection: "row", justifyContent: "space-between" },
+  srEs: { fontSize: 9 },
+  bloqueDir: { marginLeft: 28, marginTop: 3 },
+  nombreDest: { fontFamily: "Courier-BoldOblique", fontSize: 11 },
+  lineaDir: { fontFamily: "Courier-BoldOblique", fontSize: 11 },
+  docLinea: { marginTop: 7, marginLeft: 10, fontSize: 9 },
 
-  rule: { borderBottomWidth: 0.8, borderBottomColor: "#000" },
-  ruleFina: { borderBottomWidth: 0.5, borderBottomColor: "#000" },
+  rule: { borderBottomWidth: 1, borderBottomColor: MARCA_COLORES.primario },
+  ruleFina: { borderBottomWidth: 0.6, borderBottomColor: MARCA_COLORES.borde },
 
   leyenda: { marginVertical: 14, alignItems: "center" },
-  leyendaTxt: { fontFamily: "Courier-Bold", fontSize: 7.5, textAlign: "center", lineHeight: 1.5 },
+  leyendaTxt: {
+    fontFamily: "Courier-Bold",
+    fontSize: 9.5,
+    textAlign: "center",
+    lineHeight: 1.5,
+  },
 
   // ── Barra de estado de cuenta ──
-  barra: { flexDirection: "row", marginTop: 10, marginBottom: 8 },
-  barraTxt: { fontSize: 6.6 },
+  barra: {
+    flexDirection: "row",
+    marginTop: 10,
+    marginBottom: 8,
+    backgroundColor: MARCA_COLORES.fondo,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  barraTxt: { fontSize: 8.5, fontFamily: "Courier-Bold" },
 
   // ── Cabecera de plan ──
-  planTitulo: { marginTop: 10, fontSize: 6.8 },
-  resumenHead: { flexDirection: "row", marginTop: 7 },
-  resumenRow: { flexDirection: "row", marginTop: 2 },
-  planRef: { marginTop: 9, fontSize: 6.6 },
+  planTitulo: {
+    marginTop: 12,
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: MARCA_COLORES.acento,
+  },
+  resumenHead: { flexDirection: "row", marginTop: 8, fontFamily: "Courier-Bold", fontSize: 8.5 },
+  resumenRow: { flexDirection: "row", marginTop: 3, fontSize: 8.5 },
+  planRef: { marginTop: 9, fontSize: 8.5 },
 
   // ── Tabla de movimientos ──
-  tablaHead: { flexDirection: "row", marginTop: 8, marginBottom: 3 },
-  fila: { flexDirection: "row", paddingVertical: 0.9 },
+  tablaHead: {
+    flexDirection: "row",
+    marginTop: 9,
+    marginBottom: 3,
+    paddingBottom: 2,
+    fontFamily: "Courier-Bold",
+    fontSize: 8.5,
+    borderBottomWidth: 0.8,
+    borderBottomColor: MARCA_COLORES.primario,
+  },
+  fila: { flexDirection: "row", paddingVertical: 1.6, fontSize: 8.5 },
   cFecha: { width: "10%" },
   cConcepto: { width: "31%" },
   cCuota: { width: "7%", textAlign: "right", paddingRight: 6 },
@@ -84,21 +134,46 @@ const styles = StyleSheet.create({
 
   // ── Totales ──
   totales: { marginTop: 12 },
-  totalRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
-  totalLabel: { fontFamily: "Courier-Bold", fontSize: 7.2, width: 150, textAlign: "right" },
-  totalValor: { fontFamily: "Courier-Bold", fontSize: 7.2, width: 95, textAlign: "right" },
-  vencido: { color: "#a11" },
+  totalRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 3 },
+  totalLabel: { fontFamily: "Courier-Bold", fontSize: 9.5, width: 190, textAlign: "right" },
+  totalValor: { fontFamily: "Courier-Bold", fontSize: 9.5, width: 110, textAlign: "right" },
+
+  /**
+   * El resaltador rojo de los atrasos y las advertencias: fondo lleno y letra
+   * blanca en negrita. Es lo que pidió el cliente y es lo correcto — un color
+   * de texto apenas más oscuro no se ve en una fotocopia ni a contraluz, y
+   * estas son justo las líneas que el cliente tiene que ver sí o sí.
+   */
+  alarma: {
+    backgroundColor: MARCA_COLORES.alarma,
+    color: MARCA_COLORES.sobreOscuro,
+    fontFamily: "Courier-Bold",
+  },
+  /** Igual que `alarma` pero para los bloques que van en Helvetica */
+  alarmaBloque: {
+    backgroundColor: MARCA_COLORES.alarma,
+    color: MARCA_COLORES.sobreOscuro,
+    fontFamily: "Helvetica-Bold",
+  },
+  alarmaFila: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 3,
+    paddingVertical: 2.5,
+    paddingHorizontal: 5,
+  },
+  alarmaTexto: { fontSize: 9, color: MARCA_COLORES.sobreOscuro, fontFamily: "Helvetica-Bold" },
 
   // ── Pie ──
   footer: {
     position: "absolute",
-    bottom: 22,
+    bottom: 24,
     left: 34,
     right: 34,
     fontFamily: "Helvetica-Bold",
-    fontSize: 6.2,
+    fontSize: 8,
     textAlign: "center",
-    color: "#000",
+    color: MARCA_COLORES.secundario,
     lineHeight: 1.45,
   },
 });
@@ -133,6 +208,8 @@ interface Asiento {
   debito: number | null;
   credito: number | null;
   saldo: number;
+  /** Atraso o recargo: la fila va con el resaltador rojo y letra blanca. */
+  alarma: boolean;
 }
 
 function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
@@ -157,6 +234,7 @@ function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
       debito: null,
       credito: null,
       saldo: 0,
+      alarma: false,
     },
     {
       fecha: fechaCorta(cronologico[0]?.fecha),
@@ -166,6 +244,7 @@ function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
       debito: plan.montoTotal,
       credito: null,
       saldo: plan.montoTotal,
+      alarma: false,
     },
   ];
 
@@ -184,6 +263,7 @@ function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
       debito: null,
       credito: cobrado ? m.monto : null,
       saldo,
+      alarma: m.estado === "Atrasado" || m.estado === "Recargo",
     });
   });
 
@@ -196,6 +276,7 @@ function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
       debito: plan.proximaCuota.monto,
       credito: null,
       saldo,
+      alarma: false,
     });
   }
 
@@ -229,8 +310,14 @@ function PlanSection({ plan }: { plan: EstadoDeCuentaPlan }) {
 
       <Text style={styles.planRef}>
         PLAN Nº {plan.planId} MONTO TOTAL: {num(plan.montoTotal)} CUOTAS: {plan.cuotasTotales}
-        {plan.vencido > 0 ? `  VENCIDO: ${num(plan.vencido)}` : ""}
       </Text>
+
+      {plan.vencido > 0 && (
+        <View style={[styles.alarmaFila, styles.alarmaBloque]}>
+          <Text style={styles.alarmaTexto}>VENCIDO EN ESTE PLAN</Text>
+          <Text style={styles.alarmaTexto}>{num(plan.vencido)}</Text>
+        </View>
+      )}
 
       {/* ponytail: si un plan supera ~45 cuotas la tabla se parte y la 2da página
           queda sin esta cabecera. `fixed` no sirve: la repite en todas las páginas,
@@ -247,7 +334,9 @@ function PlanSection({ plan }: { plan: EstadoDeCuentaPlan }) {
       </View>
 
       {filas.map((f, i) => (
-        <View key={i} style={styles.fila} wrap={false}>
+        // Una cuota atrasada o un recargo van con el resaltador rojo: es la
+        // línea que el cliente tiene que ver de un vistazo.
+        <View key={i} style={f.alarma ? [styles.fila, styles.alarma] : styles.fila} wrap={false}>
           <Text style={styles.cFecha}>{f.fecha}</Text>
           <Text style={styles.cConcepto}>{f.concepto}</Text>
           <Text style={styles.cCuota}>{f.cuota}</Text>
@@ -262,15 +351,19 @@ function PlanSection({ plan }: { plan: EstadoDeCuentaPlan }) {
 }
 
 export function EstadoCuentaDocument({
-  ec,
+  ec: completo,
   cliente,
   leyenda = LEYENDA_DEFAULT,
+  planId,
 }: {
   ec: EstadoDeCuenta;
   cliente: EstadoCuentaPdfCliente;
   /** Plantillas_de_mensaje.Mensaje — una línea por salto de línea */
   leyenda?: string;
+  /** Un solo plan en vez de toda la cuenta. Sin esto, van todos. */
+  planId?: number;
 }) {
+  const ec = soloElPlan(completo, planId);
   const domicilio = [cliente.codigoPostal, cliente.localidadNombre].filter(Boolean).join(" ");
   const lineasLeyenda = leyenda.split("\n").filter((l) => l.trim() !== "");
   const cumplimiento = calcularCumplimiento(ec, ec.generadoEl);
@@ -282,14 +375,11 @@ export function EstadoCuentaDocument({
       subject="Estado de cuenta unificado"
     >
       <Page size="A4" style={styles.page}>
-        {/* El logo es un data URI (lib/marca.ts): tiene que viajar dentro del
-            archivo, porque el PDF se manda como adjunto y una URL externa
-            llegaría al cliente como un recuadro vacío. Sin logo cargado queda
-            solo el nombre, que es el estado de hoy. */}
+        {/* El isotipo se dibuja como vectores en vez de incrustar el PNG: el
+            PDF se manda como adjunto por WhatsApp, así que todo lo que entra
+            acá viaja con el archivo y conviene que pese poco. */}
         <View style={styles.encabezado}>
-          {/* eslint-disable-next-line jsx-a11y/alt-text -- es el Image de
-              @react-pdf/renderer, no un <img>: no acepta alt */}
-          {EMPRESA_LOGO !== "" && <Image src={EMPRESA_LOGO} style={styles.logoImg} />}
+          <IsotipoPdf tam={34} />
           <Text style={styles.logo}>{EMPRESA_NOMBRE.toUpperCase()}</Text>
         </View>
 
@@ -359,9 +449,9 @@ export function EstadoCuentaDocument({
             <Text style={styles.totalValor}>{num(ec.saldoPendiente)}</Text>
           </View>
           {ec.totalVencido > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, styles.vencido]}>TOTAL VENCIDO</Text>
-              <Text style={[styles.totalValor, styles.vencido]}>{num(ec.totalVencido)}</Text>
+            <View style={[styles.totalRow, styles.alarma]}>
+              <Text style={[styles.totalLabel, styles.alarma]}>TOTAL VENCIDO</Text>
+              <Text style={[styles.totalValor, styles.alarma]}>{num(ec.totalVencido)}</Text>
             </View>
           )}
         </View>
@@ -382,27 +472,30 @@ export function EstadoCuentaDocument({
               {cumplimiento.cuotasPagadas} de {cumplimiento.cuotasTotales}
             </Text>
           </View>
-          <View style={styles.cumplimientoFila}>
-            <Text style={[styles.cumplimientoLabel, cumplimiento.cuotasAtrasadas > 0 ? styles.vencido : {}]}>
-              Cuotas atrasadas
-            </Text>
-            <Text style={[styles.cumplimientoValor, cumplimiento.cuotasAtrasadas > 0 ? styles.vencido : {}]}>
-              {cumplimiento.cuotasAtrasadas}
-            </Text>
-          </View>
+          {cumplimiento.cuotasAtrasadas > 0 ? (
+            <View style={[styles.alarmaFila, styles.alarmaBloque]}>
+              <Text style={styles.alarmaTexto}>CUOTAS ATRASADAS</Text>
+              <Text style={styles.alarmaTexto}>{cumplimiento.cuotasAtrasadas}</Text>
+            </View>
+          ) : (
+            <View style={styles.cumplimientoFila}>
+              <Text style={styles.cumplimientoLabel}>Cuotas atrasadas</Text>
+              <Text style={styles.cumplimientoValor}>0</Text>
+            </View>
+          )}
 
           {cumplimiento.advertencias.length > 0 && (
             <>
-              <Text style={[styles.cumplimientoTitulo, { marginTop: 6 }]}>
+              <Text style={[styles.cumplimientoTitulo, { marginTop: 8 }]}>
                 ADVERTENCIAS ({cumplimiento.advertencias.length})
               </Text>
               {cumplimiento.advertencias.map((a, i) => (
-                <View key={i} style={styles.advertenciaFila}>
-                  <Text style={styles.advertenciaTexto}>
-                    {formatFecha(a.fecha)}  {a.motivo}
+                <View key={i} style={[styles.alarmaFila, styles.alarmaBloque]} wrap={false}>
+                  <Text style={styles.alarmaTexto}>
+                    {formatFecha(a.fecha)}  {a.motivo.toUpperCase()}
                   </Text>
                   {a.recargo > 0 && (
-                    <Text style={styles.advertenciaTexto}>recargo {num(a.recargo)}</Text>
+                    <Text style={styles.alarmaTexto}>RECARGO {num(a.recargo)}</Text>
                   )}
                 </View>
               ))}
@@ -452,23 +545,32 @@ function identificador(cliente: EstadoCuentaPdfCliente): string {
 export async function archivoEstadoCuentaPdf(
   ec: EstadoDeCuenta,
   cliente: EstadoCuentaPdfCliente,
-  leyenda?: string
+  leyenda?: string,
+  planId?: number
 ): Promise<File> {
   const blob = await pdf(
-    <EstadoCuentaDocument ec={ec} cliente={cliente} leyenda={leyenda} />
+    <EstadoCuentaDocument ec={ec} cliente={cliente} leyenda={leyenda} planId={planId} />
   ).toBlob();
-  return new File([blob], `estado-cuenta-${identificador(cliente)}-${ec.generadoEl}.pdf`, {
-    type: "application/pdf",
-  });
+
+  // El plan va en el nombre para que no se pisen dos PDF del mismo cliente en
+  // la carpeta de descargas cuando se manda uno por plan.
+  const sufijo = planId === undefined ? "" : `-plan${planId}`;
+
+  return new File(
+    [blob],
+    `estado-cuenta-${identificador(cliente)}${sufijo}-${ec.generadoEl}.pdf`,
+    { type: "application/pdf" }
+  );
 }
 
 /** Genera el PDF y dispara la descarga en el navegador */
 export async function descargarEstadoCuentaPdf(
   ec: EstadoDeCuenta,
   cliente: EstadoCuentaPdfCliente,
-  leyenda?: string
+  leyenda?: string,
+  planId?: number
 ): Promise<void> {
-  descargarArchivo(await archivoEstadoCuentaPdf(ec, cliente, leyenda));
+  descargarArchivo(await archivoEstadoCuentaPdf(ec, cliente, leyenda, planId));
 }
 
 /** Baja un archivo ya generado, sin volver a renderizar el PDF */

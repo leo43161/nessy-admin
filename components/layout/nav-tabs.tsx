@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ClipboardList, Receipt, Users, Wallet } from "lucide-react";
+import { BarChart3, ClipboardList, PiggyBank, Receipt, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TABS, type Tab } from "@/lib/navegacion";
 
 const ICONOS = {
   operaciones: ClipboardList,
   cierre: Wallet,
+  balance: PiggyBank,
   analisis: BarChart3,
   clientes: Users,
   financiaciones: Receipt,
@@ -39,7 +40,7 @@ export function NavTabs() {
         "sm:inset-x-auto sm:top-0 sm:left-0 sm:h-dvh sm:w-18 sm:border-t-0 sm:border-r sm:pb-0 sm:shadow-none",
       )}
     >
-      <div className="grid grid-cols-5 sm:flex sm:h-full sm:flex-col sm:gap-1 sm:pt-3">
+      <div className="grid grid-cols-6 sm:flex sm:h-full sm:flex-col sm:gap-1 sm:pt-3">
         {TABS.map((tab) => {
           const Icono = ICONOS[tab.icono];
           // startsWith y no ===: /gestion/clientes mantiene la solapa marcada

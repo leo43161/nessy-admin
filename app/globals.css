@@ -40,8 +40,13 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-primary-dark: var(--primary-dark);
-  --color-sky: var(--sky);
+  --color-acento: var(--acento);
   --color-text-secondary: var(--text-secondary);
+  --color-marca-navy: var(--marca-navy);
+  --color-marca-navy-hondo: var(--marca-navy-hondo);
+  --color-marca-verde: var(--marca-verde);
+  --color-marca-verde-hondo: var(--marca-verde-hondo);
+  --color-marca-tenue: var(--marca-tenue);
   --color-cobrador-1: var(--cobrador-1);
   --color-cobrador-2: var(--cobrador-2);
   --color-cobrador-3: var(--cobrador-3);
@@ -55,95 +60,133 @@
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Paleta portada de la maqueta HTML (code-html/cobranzas-admin).
-   Los hex originales están anotados al lado de cada token.
+   PALETA DE MARCA — Preferenciale
+   Sale del brand sheet (img/Brand Identity). Los hex están anotados
+   al lado de cada token; el oklch es la conversión exacta.
+
+     Deep Navy Blue  #0E1E3A  PRIMARY    texto, botones, isotipo
+     Slate Gray      #5C6B7A  SECONDARY  texto de apoyo
+     Emerald Green   #0E9C6B  ACCENT     gráficos, realces, foco
+
+   ⚠️ El acento NO se usa como fondo de texto: blanco sobre #0E9C6B da
+   3.5:1 y no llega al 4.5:1 que necesita un texto normal. Cuando el
+   verde tiene que llevar letra, va el #0B7A54 (5.35:1). El navy con
+   blanco da 16.6:1, así que es el que rellena los botones.
+
+   Este bloque es el gemelo de MARCA_COLORES en lib/marca.ts (Tailwind
+   necesita los colores como custom properties en build, no puede leer
+   un módulo TS). Si cambia la marca, cambian los dos.
    ════════════════════════════════════════════════════════════════ */
 
+/*
+ * Los colores de marca CRUDOS, iguales en claro y en oscuro.
+ *
+ * Los tokens de abajo (`--primary`, `--accent`…) son semánticos y se dan
+ * vuelta con el tema: el navy que rellena un botón en claro no puede rellenar
+ * nada en oscuro. Estos no: son "el navy de Preferenciale" y "el verde de
+ * Preferenciale", punto.
+ *
+ * Se usan en las superficies que a propósito ignoran el tema —el login, que es
+ * una pantalla de marca y siempre va oscura—. A propósito NO se redefinen en
+ * `.dark`: si se redefinieran, el login cambiaría de color según cómo tenga el
+ * celular el modo oscuro, que es justo lo que no queremos de un splash.
+ */
 :root {
-  --background: oklch(0.985 0.005 255); /* #F8FAFF surface-2 */
-  --foreground: oklch(0.208 0.042 265.755); /* #0F172A text-primary */
-  --card: oklch(1 0 0); /* #FFFFFF surface */
-  --card-foreground: oklch(0.208 0.042 265.755);
+  --marca-navy: oklch(0.238 0.058 260.8); /* #0E1E3A */
+  --marca-navy-hondo: oklch(0.168 0.045 261); /* el fondo del degradé */
+  --marca-verde: oklch(0.613 0.132 161.9); /* #0E9C6B */
+  --marca-verde-hondo: oklch(0.514 0.109 162.4); /* #0B7A54 */
+  --marca-tenue: oklch(0.714 0.018 248.1); /* #9AA4AE */
+}
+
+:root {
+  --background: oklch(0.949 0.003 264.5); /* #EDEEF0 */
+  --foreground: oklch(0.238 0.058 260.8); /* #0E1E3A navy */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: oklch(0.238 0.058 260.8);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.208 0.042 265.755);
-  --primary: oklch(0.55 0.2 259); /* #1A6FE8 */
+  --popover-foreground: oklch(0.238 0.058 260.8);
+  --primary: oklch(0.238 0.058 260.8); /* #0E1E3A */
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.96 0.014 255); /* #EEF4FF surface-3 */
-  --secondary-foreground: oklch(0.44 0.176 262); /* #0F4DB5 primary-dark */
-  --muted: oklch(0.96 0.014 255);
-  --muted-foreground: oklch(0.704 0.04 256.788); /* #94A3B8 text-muted */
-  --accent: oklch(0.96 0.014 255);
-  --accent-foreground: oklch(0.44 0.176 262);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.932 0.032 255.585); /* #DBEAFE */
-  --input: oklch(0.882 0.059 254.128); /* #BFDBFE border-strong */
-  --ring: oklch(0.55 0.2 259);
+  --secondary: oklch(0.927 0.006 255.5); /* #E4E7EB */
+  --secondary-foreground: oklch(0.238 0.058 260.8);
+  --muted: oklch(0.927 0.006 255.5);
+  --muted-foreground: oklch(0.521 0.03 248.4); /* #5C6B7A slate */
+  --accent: oklch(0.94 0.035 162); /* verde muy lavado, para hovers */
+  --accent-foreground: oklch(0.514 0.109 162.4); /* #0B7A54 */
+  --destructive: oklch(0.501 0.178 28.7); /* #B3261E */
+  --border: oklch(0.887 0.009 258.3); /* #D6DAE0 */
+  --input: oklch(0.84 0.012 258); /* un paso más marcado que el borde */
+  --ring: oklch(0.613 0.132 161.9); /* #0E9C6B — el foco en verde marca */
   --radius: 0.75rem;
 
-  /* Tokens propios de la maqueta */
-  --primary-dark: oklch(0.44 0.176 262); /* #0F4DB5 */
-  --sky: oklch(0.746 0.132 232); /* #38BDF8 */
-  --text-secondary: oklch(0.446 0.03 256.802); /* #475569 */
+  /* Tokens propios del panel */
+  --primary-dark: oklch(0.19 0.05 261); /* navy más profundo, para énfasis */
+  --acento: oklch(0.613 0.132 161.9); /* #0E9C6B */
+  --text-secondary: oklch(0.521 0.03 248.4); /* #5C6B7A */
 
-  /* Un color por cobrador (kanban, ledgers, barras) */
-  --cobrador-1: oklch(0.55 0.2 259); /* #1A6FE8 */
-  --cobrador-2: oklch(0.6 0.113 221); /* #0891B2 */
-  --cobrador-3: oklch(0.51 0.24 296); /* #7C3AED */
+  /* Un color por cobrador (kanban, ledgers, barras). Verde / azul / ámbar:
+     se distinguen entre sí también con daltonismo rojo-verde. */
+  --cobrador-1: oklch(0.613 0.132 161.9); /* esmeralda de marca */
+  --cobrador-2: oklch(0.5 0.13 258); /* azul de la familia del navy */
+  --cobrador-3: oklch(0.68 0.14 70); /* ámbar */
 
   --chart-1: var(--cobrador-1);
   --chart-2: var(--cobrador-2);
   --chart-3: var(--cobrador-3);
-  --chart-4: var(--sky);
-  --chart-5: oklch(0.704 0.04 256.788);
+  --chart-4: oklch(0.514 0.109 162.4);
+  --chart-5: oklch(0.521 0.03 248.4);
 
   --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.55 0.2 259);
+  --sidebar-foreground: oklch(0.238 0.058 260.8);
+  --sidebar-primary: oklch(0.238 0.058 260.8);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0.014 255);
-  --sidebar-accent-foreground: oklch(0.44 0.176 262);
-  --sidebar-border: oklch(0.932 0.032 255.585);
-  --sidebar-ring: oklch(0.55 0.2 259);
+  --sidebar-accent: oklch(0.94 0.035 162);
+  --sidebar-accent-foreground: oklch(0.514 0.109 162.4);
+  --sidebar-border: oklch(0.887 0.009 258.3);
+  --sidebar-ring: oklch(0.613 0.132 161.9);
 }
 
-/* La maqueta es solo light; el dark se derivó manteniendo el hue azul
-   (~260) en los grises, para que no se vea "apagado" ni neutro. */
+/* El brand sheet es solo light. Para el dark se mantiene el hue del navy
+   (~260) en los grises y el primario se aclara dentro de esa misma familia:
+   el #0E1E3A de relleno sobre un fondo oscuro no se vería. El verde de marca
+   también sube de luminosidad para seguir contrastando. */
 .dark {
-  --background: oklch(0.16 0.022 261);
-  --foreground: oklch(0.97 0.005 255);
-  --card: oklch(0.213 0.027 261);
-  --card-foreground: oklch(0.97 0.005 255);
-  --popover: oklch(0.213 0.027 261);
-  --popover-foreground: oklch(0.97 0.005 255);
-  --primary: oklch(0.657 0.172 258); /* #4B93F5 — aclarado para contrastar */
-  --primary-foreground: oklch(0.16 0.022 261);
-  --secondary: oklch(0.27 0.032 261);
-  --secondary-foreground: oklch(0.86 0.06 255);
-  --muted: oklch(0.27 0.032 261);
-  --muted-foreground: oklch(0.68 0.03 257);
-  --accent: oklch(0.3 0.04 261);
-  --accent-foreground: oklch(0.86 0.06 255);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 11%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.657 0.172 258);
+  --background: oklch(0.185 0.025 261);
+  --foreground: oklch(0.96 0.004 255);
+  --card: oklch(0.235 0.03 261);
+  --card-foreground: oklch(0.96 0.004 255);
+  --popover: oklch(0.235 0.03 261);
+  --popover-foreground: oklch(0.96 0.004 255);
+  --primary: oklch(0.75 0.085 258); /* navy aclarado */
+  --primary-foreground: oklch(0.185 0.025 261);
+  --secondary: oklch(0.29 0.035 261);
+  --secondary-foreground: oklch(0.92 0.02 255);
+  --muted: oklch(0.29 0.035 261);
+  --muted-foreground: oklch(0.72 0.022 250);
+  --accent: oklch(0.32 0.05 165);
+  --accent-foreground: oklch(0.8 0.13 162);
+  --destructive: oklch(0.63 0.19 27);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.72 0.14 162);
 
-  --primary-dark: oklch(0.75 0.13 255);
-  --sky: oklch(0.79 0.12 232);
-  --text-secondary: oklch(0.75 0.03 257);
+  --primary-dark: oklch(0.85 0.06 258);
+  --acento: oklch(0.72 0.14 162);
+  --text-secondary: oklch(0.76 0.025 250);
 
-  --cobrador-1: oklch(0.657 0.172 258);
-  --cobrador-2: oklch(0.7 0.11 221);
-  --cobrador-3: oklch(0.65 0.19 296);
+  --cobrador-1: oklch(0.72 0.14 162);
+  --cobrador-2: oklch(0.68 0.12 258);
+  --cobrador-3: oklch(0.78 0.13 70);
 
-  --sidebar: oklch(0.213 0.027 261);
-  --sidebar-foreground: oklch(0.97 0.005 255);
-  --sidebar-primary: oklch(0.657 0.172 258);
-  --sidebar-primary-foreground: oklch(0.16 0.022 261);
-  --sidebar-accent: oklch(0.27 0.032 261);
-  --sidebar-accent-foreground: oklch(0.97 0.005 255);
-  --sidebar-border: oklch(1 0 0 / 11%);
-  --sidebar-ring: oklch(0.657 0.172 258);
+  --sidebar: oklch(0.235 0.03 261);
+  --sidebar-foreground: oklch(0.96 0.004 255);
+  --sidebar-primary: oklch(0.75 0.085 258);
+  --sidebar-primary-foreground: oklch(0.185 0.025 261);
+  --sidebar-accent: oklch(0.32 0.05 165);
+  --sidebar-accent-foreground: oklch(0.8 0.13 162);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.72 0.14 162);
 }
 
 @layer base {
@@ -153,8 +196,23 @@
   body {
     @apply bg-background text-foreground;
   }
+  /**
+   * Base de 17 px en vez de 16.
+   *
+   * Los usuarios son gente grande y el reclamo fue que "es muy chiquito
+   * todo". Como Tailwind mide en rem, subir la raíz agranda de una vez las
+   * letras, los altos de los controles y los espacios, en las dos apps y en
+   * todas las pantallas — sin tener que ir clase por clase.
+   *
+   * ponytail: 17px es lo que entra sin romper la pantalla más apretada de
+   * cada app (el kanban de operaciones en el panel, la lista de cobros del
+   * día en la del cobrador). Si el cliente lo sigue viendo chico, el próximo
+   * paso no es subir esto a 18 sino darle scroll horizontal a esas grillas;
+   * con 18 px las columnas se pisan.
+   */
   html {
     @apply font-sans;
+    font-size: 106.25%;
   }
 }
 

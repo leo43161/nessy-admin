@@ -37,7 +37,7 @@ export function PerformanceCobradores({ filas }: { filas: PerformanceCobrador[] 
             className="mb-1.5 h-2 overflow-hidden rounded-full bg-secondary"
           >
             <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-sky transition-[width] duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-primary to-acento transition-[width] duration-500"
               style={{ width: `${fila.efectividad}%` }}
             />
           </div>
@@ -45,7 +45,7 @@ export function PerformanceCobradores({ filas }: { filas: PerformanceCobrador[] 
           <div className="flex flex-wrap items-center gap-2.5">
             <Punto color="bg-green-500">{fila.cobradasPropias} propio</Punto>
             {fila.cobradasConApoyo > 0 && (
-              <Punto color="bg-sky">{fila.cobradasConApoyo} con apoyo</Punto>
+              <Punto color="bg-acento">{fila.cobradasConApoyo} con apoyo</Punto>
             )}
             {fila.fallidas > 0 && <Punto color="bg-red-500">{fila.fallidas} fallido</Punto>}
             {fila.pendientes > 0 && <Punto color="bg-amber-500">{fila.pendientes} pendiente</Punto>}

@@ -125,7 +125,7 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
       // (basePath), así que llegaría 404 y el pin quedaría invisible.
       const icono = L.divIcon({
         className: "",
-        html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--primary,#ea580c);border:2px solid #fff;box-shadow:0 1px 4px rgb(0 0 0 / .4)"></div>`,
+        html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--primary,#0E1E3A);border:2px solid #fff;box-shadow:0 1px 4px rgb(0 0 0 / .4)"></div>`,
         iconSize: [22, 22],
         iconAnchor: [11, 22],
       });

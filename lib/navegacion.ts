@@ -15,12 +15,13 @@ export interface Tab {
   href: string;
   label: string;
   /** Nombre del icono de lucide-react; el componente resuelve cuál es */
-  icono: "operaciones" | "cierre" | "analisis" | "clientes" | "financiaciones";
+  icono: "operaciones" | "cierre" | "balance" | "analisis" | "clientes" | "financiaciones";
 }
 
 export const TABS: Tab[] = [
   { href: "/operaciones", label: "Operaciones", icono: "operaciones" },
   { href: "/cierre", label: "Cierre", icono: "cierre" },
+  { href: "/balance", label: "Balance", icono: "balance" },
   { href: "/analisis", label: "Análisis", icono: "analisis" },
   { href: "/gestion/clientes", label: "Clientes", icono: "clientes" },
   { href: "/gestion/planes", label: "Planes", icono: "financiaciones" },

@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { WhatsappButton } from "@/components/shared/whatsapp-button";
 import { ClienteFormDialog } from "@/components/gestion/cliente-form-dialog";
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { fmtMoney, formatFecha, mapaUrl } from "@/lib/format";
 import { estadoDeCuentaToText, LEYENDA_RECLAMO, reclamoToText } from "@/lib/estado-cuenta";
 import { enviarEstadoCuenta } from "@/lib/compartir";
+import { soloElPlan } from "@/lib/estado-cuenta-por-plan";
 import { PLAN_STATUS_BADGE } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearDetalle, fetchClienteDetalle, fetchClientes } from "@/store/slices/clientes.slice";
@@ -67,6 +69,8 @@ export function ClienteDetailDialog({
   const [cuotaACobrar, setCuotaACobrar] = useState<CuotaACobrar | null>(null);
   const [guardandoCobrador, setGuardandoCobrador] = useState(false);
   const [enviandoReclamo, setEnviandoReclamo] = useState(false);
+  /** Qué plan lleva el PDF del reclamo. `undefined` = toda la cuenta. */
+  const [planDelPdf, setPlanDelPdf] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (open && clienteId != null) dispatch(fetchClienteDetalle(clienteId));
@@ -134,11 +138,15 @@ export function ClienteDetailDialog({
           localidadNombre: data.localidadNombre,
         },
         LEYENDA_RECLAMO,
+        planDelPdf,
       );
 
       const salio = await enviarEstadoCuenta(
         archivo,
-        reclamoToText(data.estadoDeCuenta),
+        // El texto se recorta al mismo plan que el PDF: si no, el mensaje
+        // reclama el vencido de toda la cuenta y el adjunto muestra otro
+        // número. El cliente ve dos cifras distintas y no paga ninguna.
+        reclamoToText(soloElPlan(data.estadoDeCuenta, planDelPdf)),
         data.telefonos[0]?.numero ?? null,
         descargarArchivo,
       );
@@ -274,6 +282,31 @@ export function ClienteDetailDialog({
                     className="text-red-600 dark:text-red-400"
                   />
                 </div>
+                {/* Con un solo plan no hay nada que elegir. */}
+                {data.estadoDeCuenta.planes.length > 1 && (
+                  <div className="mb-2 space-y-1.5">
+                    <Label htmlFor="plan-del-reclamo">Qué plan va en el PDF</Label>
+                    <select
+                      id="plan-del-reclamo"
+                      value={planDelPdf ?? ""}
+                      onChange={(e) =>
+                        setPlanDelPdf(e.target.value === "" ? undefined : Number(e.target.value))
+                      }
+                      disabled={enviandoReclamo}
+                      className="h-11 w-full rounded-md border border-input bg-transparent px-3.5 text-base shadow-xs disabled:opacity-50"
+                    >
+                      <option value="">
+                        Toda la cuenta ({data.estadoDeCuenta.planes.length} planes)
+                      </option>
+                      {data.estadoDeCuenta.planes.map((plan) => (
+                        <option key={plan.planId} value={plan.planId}>
+                          Solo {plan.nombre} — {fmtMoney(plan.pendiente)} pendiente
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" size="sm" onClick={copiarEstado}>
                     <Copy />

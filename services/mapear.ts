@@ -276,6 +276,12 @@ export function dePlan(p: PlanPayload): Record<string, unknown> {
 
   if (p.id) cuerpo.id = p.id;
 
+  // El capital solo va en el alta: en la edición el préstamo ya se entregó y
+  // volver a mandarlo descontaría la caja dos veces por la misma plata.
+  if (!p.id && p.capitalEntregado !== undefined) {
+    cuerpo.capital_entregado = p.capitalEntregado;
+  }
+
   // Solo en el alta: el POST crea el plan y su cronograma en un request.
   //
   // Van los montos uno por uno y no un `Monto_esperado` único: con todas las

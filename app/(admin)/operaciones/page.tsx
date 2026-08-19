@@ -1,18 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { RefreshCw, Users, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
+import { AccionesFab } from "@/components/shared/acciones-fab";
 import { CountBadge, SectionHeader } from "@/components/shared/section-header";
 import { KanbanBoard } from "@/components/operaciones/kanban-board";
 import { AvisoAtrasos } from "@/components/operaciones/aviso-atrasos";
 import { ClienteDetailDialog } from "@/components/gestion/cliente-detail-dialog";
 import { columnasPorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
+import { useAccionesDePeriodo } from "@/hooks/use-acciones-periodo";
 
 export default function OperacionesPage() {
   const { cobros, cobradores, hoy, cargando, error, etiquetaRango, refrescar } = usePeriodo();
   const [clienteId, setClienteId] = useState<number | null>(null);
+  const router = useRouter();
+  const accionesDePeriodo = useAccionesDePeriodo();
 
   const columnas = useMemo(
     () => columnasPorCobrador(cobros, cobradores, hoy),
@@ -53,6 +59,32 @@ export default function OperacionesPage() {
           />
         </>
       )}
+
+      <AccionesFab
+        acciones={[
+          {
+            label: "Actualizar el tablero",
+            descripcion: "Vuelve a traer las cuotas del período",
+            icon: <RefreshCw />,
+            onSelect: refrescar,
+            disabled: cargando,
+          },
+          {
+            label: "Ir a los clientes",
+            descripcion: "Alta, edición y ficha de cada cliente",
+            icon: <Users />,
+            onSelect: () => router.push("/gestion/clientes"),
+            separar: true,
+          },
+          {
+            label: "Ir al cierre de caja",
+            descripcion: "Cuánto trae cada cobrador en este período",
+            icon: <Wallet />,
+            onSelect: () => router.push("/cierre"),
+          },
+          ...accionesDePeriodo.map((accion, i) => ({ ...accion, separar: i === 0 })),
+        ]}
+      />
 
       <ClienteDetailDialog
         clienteId={clienteId}

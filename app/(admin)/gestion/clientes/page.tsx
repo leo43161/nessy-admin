@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eraser, FileText, Pencil, Plus, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AccionesFab } from "@/components/shared/acciones-fab";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -29,6 +31,7 @@ import type { ClienteListado } from "@/types";
 
 export default function GestionClientesPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { items, status, error } = useAppSelector((s) => s.clientes);
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<ClienteListado | null>(null);
@@ -157,6 +160,38 @@ export default function GestionClientesPage() {
           ))
         )}
       </div>
+
+      <AccionesFab
+        acciones={[
+          {
+            label: "Cargar un cliente nuevo",
+            descripcion: "Abre el formulario de alta",
+            icon: <UserPlus />,
+            onSelect: abrirAlta,
+          },
+          {
+            label: "Limpiar la búsqueda",
+            descripcion: "Vuelve a mostrar la cartera completa",
+            icon: <Eraser />,
+            onSelect: () => setBusqueda(""),
+            disabled: busqueda === "",
+          },
+          {
+            label: "Actualizar la lista",
+            descripcion: "Vuelve a traer los clientes del servidor",
+            icon: <RefreshCw />,
+            onSelect: () => dispatch(fetchClientes({ cobradorId: null, localidadId: null })),
+            disabled: cargando,
+          },
+          {
+            label: "Ir a las financiaciones",
+            descripcion: "Alta y edición de planes de pago",
+            icon: <FileText />,
+            onSelect: () => router.push("/gestion/planes"),
+            separar: true,
+          },
+        ]}
+      />
 
       <ClienteFormDialog cliente={editando} open={formAbierto} onOpenChange={setFormAbierto} />
 
