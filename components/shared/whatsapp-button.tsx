@@ -51,19 +51,22 @@ export function WhatsappButton({
 
   return (
     <>
-      <button
-        type="button"
+      {/* Un <span> y no un <button>: el trigger YA es un botón, y anidar dos
+          es HTML inválido — React tira un error de hidratación y el navegador
+          arma un DOM distinto al del servidor. `contents` hace que el wrapper
+          no ocupe lugar, y el click llega igual desde el botón de adentro, que
+          es el que recibe foco y responde al Enter. */}
+      <span
         className="contents"
-        disabled={telefonos.length === 0}
         onClick={(e) => {
           // Muchos de estos botones viven dentro de cards clickeables: sin esto
           // se abriría también la ficha detrás del diálogo.
           e.stopPropagation();
-          setAbierto(true);
+          if (telefonos.length > 0) setAbierto(true);
         }}
       >
         {trigger}
-      </button>
+      </span>
 
       {/* Montado solo al abrir: así el texto arranca del `mensaje` de ahora y
           no del que había la primera vez que se renderizó el botón.
