@@ -149,18 +149,34 @@ export interface CobroDelDia {
   /** Quién lo cobró, si ya se registró (≠ asignado ⇒ asistencia) */
   cobradoPorId: number | null;
   cobradoPorNombre: string | null;
+  /**
+   * Lo que entró de verdad (`Pagos_realizados.Monto_abonado`), null si todavía
+   * no se cobró.
+   *
+   * No siempre es el esperado: un cobro parcial entra por menos y uno
+   * adelantado por más. El cierre suma esto, no `montoEsperado`, porque lo que
+   * el cobrador tiene que entregar es la plata que recibió.
+   */
+  montoAbonado: number | null;
+  /** `Metodos_de_pago.id_Metodos_de_pago` con el que se cobró */
+  metodoPagoId: number | null;
   cliente: ClienteListado;
 }
 
-/** Cliente resumido para listados */
-export interface ClienteListado {
+/**
+ * Cliente resumido para listados.
+ *
+ * Trae los `DatosPersona` completos aunque la lista muestre cuatro: son los
+ * que el formulario de edición necesita prellenar, y `GET /clientes` ya
+ * devuelve todas esas columnas. Antes se descartaban al mapear y editar un
+ * cliente le borraba el email, el código postal y la fecha de nacimiento.
+ */
+export interface ClienteListado extends DatosPersona {
   id: number;
   dni: string;
   nombreCompleto: string;
   status: ClienteStatus;
-  direccion: string | null;
   ubicacionCobro: string | null;
-  idLocalidad: number | null;
   localidadNombre: string | null;
   telefonos: Telefono[];
   cobradorAsignadoId: number | null;
@@ -291,6 +307,8 @@ export interface BalancePeriodo {
   deficit: number;
   /** cobrado / esperado, en % */
   efectividad: number;
+  /** Por dónde entró lo cobrado. Suma `cobrado`. */
+  porMetodo: TotalPorMetodo[];
 }
 
 /** Una fila del ledger de cierre de un cobrador */
@@ -302,6 +320,23 @@ export interface LedgerItem {
   tipo: "propio" | "apoyo" | "vencido";
   /** En "apoyo": a qué cobrador se le cubrió la cuota */
   cubreA: string | null;
+  /** Cómo pagó el cliente. null en las vencidas: no hubo cobro. */
+  metodo: string | null;
+}
+
+/**
+ * Cuánta plata entró por un método de pago.
+ *
+ * El cierre necesita esto por cobrador y no solo en total: lo que se le pide
+ * a cada uno al cerrar el día es el EFECTIVO, y ese número no es el mismo que
+ * lo que cobró — una transferencia ya entró a la cuenta y no la trae en el
+ * bolsillo. Sin el desglose, "a entregar" mezclaba las dos cosas.
+ */
+export interface TotalPorMetodo {
+  metodoId: number;
+  metodo: string;
+  cantidad: number;
+  total: number;
 }
 
 /** Cierre de caja de un cobrador en el período */
@@ -311,6 +346,10 @@ export interface CierreCobrador {
   color: string;
   /** Plata que tiene que entregar: sus cobros propios + los que cubrió */
   aEntregar: number;
+  /** Lo mismo, abierto por método de pago. Suma `aEntregar`. */
+  porMetodo: TotalPorMetodo[];
+  /** De `aEntregar`, cuánto es plata física */
+  enEfectivo: number;
   items: LedgerItem[];
 }
 
@@ -346,15 +385,41 @@ export interface FiltroClientes {
   localidadId: number | null;
 }
 
+/**
+ * Los datos de contacto que comparten Clientes, Referentes y Cobradores.
+ *
+ * En la base son literalmente las mismas columnas en las tres tablas, y los
+ * tres `sp_Crear*` las reciben en el mismo orden. Por eso el formulario que
+ * las edita es uno solo (`components/gestion/datos-persona.tsx`) y lo usan
+ * tanto la ficha del cliente como la del garante.
+ *
+ * **Son dos direcciones, no una**: `direccion` es el domicilio y
+ * `direccionAlternativa` la laboral o la segunda. Cada una con su "casa o
+ * departamento". El formulario mostraba solo la primera.
+ */
+export interface DatosPersona {
+  email: string | null;
+  codigoPostal: string | null;
+  direccion: string | null;
+  /** `casa_o_dpt_direcc_1` — Casa / Departamento del domicilio */
+  casaODepto1: string | null;
+  /** `direccion_laboral_o_alternativa` */
+  direccionAlternativa: string | null;
+  /** `casa_o_dpt_direcc_2` */
+  casaODepto2: string | null;
+  /** `img` — es una URL: la base guarda varchar(255), no el archivo */
+  img: string | null;
+  /** `fecha_de_nacimiento` en ISO ("1985-03-14") */
+  fechaNacimiento: string | null;
+  idLocalidad: number | null;
+}
+
 /** Alta / edición de cliente (modo gestión). En edición, id presente. */
-export interface ClientePayload {
+export interface ClientePayload extends DatosPersona {
   id?: number;
   dni: string;
   nombreCompleto: string;
-  email: string | null;
-  direccion: string | null;
   ubicacionCobro: string | null;
-  idLocalidad: number | null;
   /** Reemplaza la lista completa, igual que sp_EditarTelefonos */
   telefonos: string[];
   /** Cobrador asignado en Cliente_Cobrador */

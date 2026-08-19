@@ -1,6 +1,11 @@
 import { api } from "@/services/api";
-import { aReferenteDeCliente, aTelefonos, type FilaReferente } from "@/services/mapear";
-import type { ReferenteDeCliente, Telefono } from "@/types";
+import {
+  aReferenteDeCliente,
+  aTelefonos,
+  deDatosPersona,
+  type FilaReferente,
+} from "@/services/mapear";
+import type { DatosPersona, ReferenteDeCliente, Telefono } from "@/types";
 
 /**
  * Quién responde por un cliente.
@@ -21,11 +26,17 @@ export interface ReferenteSuelto {
   telefonos: Telefono[];
 }
 
-/** Alta de un referente nuevo (tabla `Referentes`) */
-export interface ReferentePayload {
+/**
+ * Alta de un referente nuevo (tabla `Referentes`).
+ *
+ * Lleva los mismos `DatosPersona` que el cliente. La tabla ya tiene todas esas
+ * columnas —`fecha_de_nacimiento` incluida— y `sp_CrearReferentes` ya las
+ * recibe: no hay nada que agregar en la base, era el formulario el que pedía
+ * tres campos de once.
+ */
+export interface ReferentePayload extends DatosPersona {
   dni: string;
   nombreCompleto: string;
-  direccion: string | null;
   telefonos: string[];
 }
 
@@ -44,9 +55,9 @@ export async function getReferentes(): Promise<ReferenteSuelto[]> {
 /** Crea un referente y devuelve su id, para poder vincularlo enseguida */
 export async function crearReferente(payload: ReferentePayload): Promise<number> {
   const { data } = await api.post<{ id_Referentes: number }>("/referentes", {
+    ...deDatosPersona(payload),
     DNI: payload.dni,
     Nombre_completo: payload.nombreCompleto,
-    direccion: payload.direccion,
     telefonos: payload.telefonos,
   });
 

@@ -20,6 +20,35 @@ const CENTRO: Punto = { lat: -26.8241, lon: -65.2226 };
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const ESPERA_MS = 800;
 
+/**
+ * La caja que encierra a la provincia de Tucumán: `izq,arriba,der,abajo`.
+ *
+ * Va con `bounded=1`, o sea que Nominatim **descarta** todo lo de afuera en
+ * vez de solo priorizarlo. Sin esto, "Laprida 495" devolvía la Laprida de
+ * Córdoba —hay una en cada ciudad del país— y el pin se iba a 400 km.
+ */
+const CAJA_TUCUMAN = "-66.20,-25.90,-64.40,-28.10";
+
+/** Cuántas sugerencias trae el autocompletar */
+const SUGERENCIAS = 6;
+
+/**
+ * Cuánto se espera después de la última tecla antes de consultar.
+ *
+ * Nominatim pide como máximo 1 consulta por segundo, así que no se puede
+ * buscar en cada letra. 500 ms es lo que tarda en soltar el teclado quien
+ * está tipeando una dirección.
+ */
+const ESPERA_SUGERENCIAS_MS = 500;
+
+/** Los parámetros comunes de las dos búsquedas por texto */
+function urlBusqueda(q: string, limite: number): string {
+  return (
+    `${NOMINATIM}/search?format=json&addressdetails=0&limit=${limite}` +
+    `&countrycodes=ar&viewbox=${CAJA_TUCUMAN}&bounded=1&q=${encodeURIComponent(q)}`
+  );
+}
+
 /** Nivel de calle: se distinguen las puertas de una cuadra */
 const ZOOM_PIN = 18;
 
@@ -48,6 +77,16 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
 
   const [direccion, setDireccion] = useState("");
   const [buscando, setBuscando] = useState(false);
+  /**
+   * Las sugerencias del autocompletar, indexadas por el texto que se muestra.
+   *
+   * Es un `<datalist>` nativo y no un desplegable propio: el navegador ya sabe
+   * filtrar, mostrar y elegir con el teclado. Como el datalist solo devuelve
+   * el texto elegido, las coordenadas se guardan acá y se buscan por ese texto
+   * cuando el input cambia.
+   */
+  const [sugerencias, setSugerencias] = useState<Map<string, Punto>>(new Map());
+  const temporizadorSugerencias = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Guarda el punto, lo centra con zoom y trae la dirección que le corresponde */
   const fijar = (p: Punto) => {
@@ -76,30 +115,75 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
     }
   };
 
-  /** Dirección escrita → mueve el pin */
+  /** Mueve el pin a un punto elegido por texto y lo guarda */
+  const moverPinA = (p: Punto) => {
+    pin.current?.setLatLng([p.lat, p.lon]);
+    mapa.current?.flyTo([p.lat, p.lon], ZOOM_PIN);
+    onChange(formatearPunto(p));
+  };
+
+  /** Dirección escrita → mueve el pin al primer resultado dentro de Tucumán */
   const buscarDireccion = async () => {
     const q = direccion.trim();
     if (!q) return;
+
+    // Si lo que hay escrito es una de las sugerencias, ya se sabe dónde cae:
+    // no hace falta volver a preguntarle a Nominatim.
+    const elegida = sugerencias.get(q);
+    if (elegida) {
+      moverPinA(elegida);
+      return;
+    }
+
     const nro = ++consulta.current;
     setBuscando(true);
     try {
-      const r = await fetch(
-        `${NOMINATIM}/search?format=json&limit=1&countrycodes=ar&q=${encodeURIComponent(q)}`,
-        { headers: { Accept: "application/json" } },
-      );
+      const r = await fetch(urlBusqueda(q, 1), { headers: { Accept: "application/json" } });
       const [hit] = await r.json();
       if (nro !== consulta.current) return;
       if (!hit) return;
 
-      const p = { lat: Number(hit.lat), lon: Number(hit.lon) };
-      pin.current?.setLatLng([p.lat, p.lon]);
-      mapa.current?.flyTo([p.lat, p.lon], ZOOM_PIN);
-      onChange(formatearPunto(p));
+      moverPinA({ lat: Number(hit.lat), lon: Number(hit.lon) });
     } catch {
       // idem: sin resultado el pin se queda donde estaba
     } finally {
       if (nro === consulta.current) setBuscando(false);
     }
+  };
+
+  /**
+   * Lo que se tipea → sugerencias, y si coincide con una, el pin se mueve solo.
+   *
+   * Elegir del datalist dispara un `change` con el texto completo, igual que
+   * terminar de escribirlo a mano: por eso alcanza con mirar si el valor está
+   * en el mapa de sugerencias en vez de escuchar un evento propio del control.
+   */
+  const alEscribir = (texto: string) => {
+    setDireccion(texto);
+
+    const yaConocida = sugerencias.get(texto);
+    if (yaConocida) {
+      moverPinA(yaConocida);
+      return;
+    }
+
+    if (temporizadorSugerencias.current) clearTimeout(temporizadorSugerencias.current);
+    // Menos de tres letras no acota nada y gasta la cuota de Nominatim.
+    if (texto.trim().length < 3) return;
+
+    temporizadorSugerencias.current = setTimeout(async () => {
+      try {
+        const r = await fetch(urlBusqueda(texto.trim(), SUGERENCIAS), {
+          headers: { Accept: "application/json" },
+        });
+        const hits: Array<{ display_name: string; lat: string; lon: string }> = await r.json();
+        setSugerencias(
+          new Map(hits.map((h) => [h.display_name, { lat: Number(h.lat), lon: Number(h.lon) }])),
+        );
+      } catch {
+        // Sin internet no hay sugerencias; el pin se sigue pudiendo arrastrar.
+      }
+    }, ESPERA_SUGERENCIAS_MS);
   };
 
   // Leaflet toca el DOM directo, así que se inicializa una sola vez al montar.
@@ -156,6 +240,7 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
     return () => {
       vivo = false;
       if (temporizador.current) clearTimeout(temporizador.current);
+      if (temporizadorSugerencias.current) clearTimeout(temporizadorSugerencias.current);
       mapa.current?.remove();
       mapa.current = null;
       pin.current = null;
@@ -179,7 +264,11 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
       <div className="flex gap-2">
         <Input
           value={direccion}
-          onChange={(e) => setDireccion(e.target.value)}
+          onChange={(e) => alEscribir(e.target.value)}
+          list="mapa-sugerencias"
+          // El navegador guarda lo tipeado antes y su lista tapa la del
+          // datalist, que es la que tiene las coordenadas.
+          autoComplete="off"
           onKeyDown={(e) => {
             // El form de cliente envuelve todo esto: sin preventDefault, Enter
             // acá guardaría el cliente en vez de buscar la dirección.
@@ -188,9 +277,15 @@ export function MapaCobro({ valor, onChange }: MapaCobroProps) {
               buscarDireccion();
             }
           }}
-          placeholder="Laprida 505, San Miguel de Tucumán"
+          placeholder="Laprida 505"
           aria-label="Buscar dirección"
         />
+        {/* Las sugerencias, con las coordenadas guardadas aparte por texto */}
+        <datalist id="mapa-sugerencias">
+          {[...sugerencias.keys()].map((nombre) => (
+            <option key={nombre} value={nombre} />
+          ))}
+        </datalist>
         <Button type="button" variant="outline" onClick={buscarDireccion} disabled={buscando}>
           {buscando ? <Loader2 className="animate-spin" /> : <Search />}
           <span className="sr-only">Buscar</span>

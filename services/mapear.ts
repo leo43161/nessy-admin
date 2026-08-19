@@ -15,6 +15,7 @@ import type {
   ClienteListado,
   ClientePayload,
   Cobrador,
+  DatosPersona,
   CobroDelDia,
   EstadoDeCuenta,
   EstadoDeCuentaMovimiento,
@@ -151,8 +152,41 @@ export function aTelefonos(numeros: string[] | undefined): Telefono[] {
   return (numeros ?? []).map((numero, i) => ({ id: i + 1, numero }));
 }
 
+/**
+ * Los datos de contacto comunes a Clientes / Referentes / Cobradores.
+ *
+ * Las tres tablas tienen exactamente estas columnas con estos nombres, así
+ * que el mapeo es uno solo. `fecha_de_nacimiento` llega como "1985-03-14" o
+ * como datetime según el driver: se recorta a los 10 primeros, que es lo que
+ * entiende un `<input type="date">`.
+ */
+export function aDatosPersona(f: {
+  email: string | null;
+  codigo_postal?: string | null;
+  direccion: string | null;
+  casa_o_dpt_direcc_1?: string | null;
+  direccion_laboral_o_alternativa?: string | null;
+  casa_o_dpt_direcc_2?: string | null;
+  img?: string | null;
+  fecha_de_nacimiento?: string | null;
+  id_localidad?: number | null;
+}): DatosPersona {
+  return {
+    email: f.email,
+    codigoPostal: f.codigo_postal ?? null,
+    direccion: f.direccion,
+    casaODepto1: f.casa_o_dpt_direcc_1 ?? null,
+    direccionAlternativa: f.direccion_laboral_o_alternativa ?? null,
+    casaODepto2: f.casa_o_dpt_direcc_2 ?? null,
+    img: f.img ?? null,
+    fechaNacimiento: f.fecha_de_nacimiento ? f.fecha_de_nacimiento.slice(0, 10) : null,
+    idLocalidad: f.id_localidad ?? null,
+  };
+}
+
 export function aCliente(f: FilaCliente, cobradorId?: number, cobradorNombre?: string): ClienteListado {
   return {
+    ...aDatosPersona(f),
     id: f.id_Clientes,
     // Hay comercios cargados sin DNI ("Kiosco El Milagro"). Es la definición
     // de negocio N.3, todavía abierta: el tipo lo exige y la base no.
@@ -160,9 +194,7 @@ export function aCliente(f: FilaCliente, cobradorId?: number, cobradorNombre?: s
     nombreCompleto: f.Nombre_completo ?? "—",
     // La columna existe pero en producción está en NULL para todas las filas.
     status: f.status === "Inactivo" ? "Inactivo" : "Activo",
-    direccion: f.direccion,
     ubicacionCobro: f.ubicacion_geografica_de_destino_de_cobro,
-    idLocalidad: f.id_localidad,
     localidadNombre: f.nombre_localidad,
     telefonos: aTelefonos(f.telefonos),
     cobradorAsignadoId: cobradorId ?? null,
@@ -242,15 +274,34 @@ export interface RespuestaEstadoCuenta {
    front. Mandar `dni` en vez de `DNI` no da un error de tipos: la API
    responde "Faltan campos obligatorios". */
 
+/**
+ * Los `DatosPersona` con los nombres de las columnas.
+ *
+ * Sirve para los tres endpoints personales: `PersonaController` arma los
+ * parámetros del SP a partir de estos nombres exactos, así que un `codigoPostal`
+ * en camelCase no da error — guarda NULL en silencio.
+ */
+export function deDatosPersona(d: DatosPersona): Record<string, unknown> {
+  return {
+    email: d.email,
+    codigo_postal: d.codigoPostal,
+    direccion: d.direccion,
+    casa_o_dpt_direcc_1: d.casaODepto1,
+    direccion_laboral_o_alternativa: d.direccionAlternativa,
+    casa_o_dpt_direcc_2: d.casaODepto2,
+    img: d.img,
+    fecha_de_nacimiento: d.fechaNacimiento,
+    id_localidad: d.idLocalidad,
+  };
+}
+
 /** Cuerpo de POST/PUT /clientes */
 export function deCliente(p: ClientePayload): Record<string, unknown> {
   const cuerpo: Record<string, unknown> = {
+    ...deDatosPersona(p),
     DNI: p.dni.trim(),
     Nombre_completo: p.nombreCompleto.trim(),
-    email: p.email,
-    direccion: p.direccion,
     ubicacion_geografica_de_destino_de_cobro: p.ubicacionCobro,
-    id_localidad: p.idLocalidad,
     telefonos: p.telefonos,
   };
 
@@ -374,6 +425,11 @@ export function aCuota(
     cobradoPorId: f.id_cobrador_cobro,
     cobradoPorNombre:
       f.id_cobrador_cobro == null ? null : (cobradores.get(f.id_cobrador_cobro) ?? "—"),
+    // Cuánto entró de verdad y por dónde. Ya venían en la fila y se
+    // descartaban: sin ellos el cierre no puede decir cuánta plata trae cada
+    // cobrador en efectivo y cuánta en transferencia.
+    montoAbonado: f.monto_abonado == null ? null : aNumero(f.monto_abonado),
+    metodoPagoId: f.id_metodo_de_pago,
     cliente,
   };
 }

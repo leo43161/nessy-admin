@@ -49,6 +49,34 @@ export function BalanceGlobal({ balance }: { balance: BalancePeriodo }) {
             </div>
           ))}
         </div>
+
+        {/* Por dónde entró la plata del período.
+            No es un detalle decorativo: es lo que separa la caja física de lo
+            que ya está en una cuenta bancaria. Sin esto, el total de arriba
+            mezclaba las dos cosas. */}
+        {balance.porMetodo.length > 0 && (
+          <div className="mt-3 rounded-lg bg-white/10 px-3 py-2.5">
+            <div className="mb-1.5 text-[0.63rem] font-semibold tracking-[0.06em] text-white/80 uppercase">
+              Cómo pagaron
+            </div>
+            <ul className="flex flex-col gap-1">
+              {balance.porMetodo.map((m) => (
+                <li
+                  key={m.metodoId}
+                  className="flex items-baseline gap-2 text-[0.78rem] text-white"
+                >
+                  <span className="min-w-0 flex-1 truncate font-semibold">{m.metodo}</span>
+                  <span className="shrink-0 text-[0.65rem] text-white/70 tabular-nums">
+                    {m.cantidad} {m.cantidad === 1 ? "cobro" : "cobros"}
+                  </span>
+                  <span className="shrink-0 font-mono font-bold tabular-nums">
+                    {fmtMoney(m.total)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

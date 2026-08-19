@@ -142,7 +142,8 @@ export interface EstadisticasHistoricas {
   clientesMorosos: FilaClienteMoroso[];
   rankingRecaudacion: FilaRecaudacion[];
   morosidadCobradores: FilaMorosidad[];
-  /** Vacío hasta que se aplique sql/fix_metodos_de_pago.sql */
+  /** Vacío hasta que se aplique sql/fix_estadisticas_clientes_nuevos.sql: el
+   *  bloque existe en el SP pero un 1054 en el bloque 9 cortaba el CALL antes. */
   metodos: FilaMetodoDePago[];
 }
 
@@ -206,7 +207,7 @@ export async function getEstadisticasHistoricas(
 
     clientesMorosos: (data.clientes_morosos ?? []).map((f) => ({
       clienteId: aNumero(f.id_cliente ?? 0),
-      // El nombre lo agrega sql/fix_metodos_de_pago.sql; antes venía solo el id.
+      // El nombre lo agrega el JOIN contra Metodos_de_pago del SP.
       nombre: (f.Nombre_completo as string | null) ?? `Cliente ${f.id_cliente}`,
       dni: (f.DNI as string | null) ?? "",
       atrasos: aNumero(f.Cantidad_Atrasos ?? 0),

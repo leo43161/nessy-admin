@@ -22,6 +22,7 @@ import type {
   EstadoVisible,
   LedgerItem,
   PerformanceCobrador,
+  TotalPorMetodo,
 } from "@/types";
 
 /**
@@ -81,6 +82,55 @@ function esDeficit(estado: EstadoVisible): boolean {
 
 const sumaMontos = (cobros: CobroDelDia[]) => cobros.reduce((s, c) => s + c.montoEsperado, 0);
 
+/**
+ * Lo que entró de verdad por una cuota cobrada.
+ *
+ * Un cobro parcial entra por menos que lo esperado y uno adelantado por más,
+ * así que la plata que el cobrador tiene en la mano es `montoAbonado`. Se cae
+ * a `montoEsperado` solo si la fila no trae el abonado: para una cuota en
+ * `Pagado` eso no debería pasar, pero preferir el 0 haría desaparecer plata
+ * del cierre sin que nadie se entere.
+ */
+const loQueEntro = (c: CobroDelDia) => c.montoAbonado ?? c.montoEsperado;
+
+const sumaCobrado = (cobros: CobroDelDia[]) => cobros.reduce((s, c) => s + loQueEntro(c), 0);
+
+/**
+ * Agrupa cobros por método de pago, de mayor a menor.
+ *
+ * El nombre sale del catálogo (`/catalogos` → `Metodos_de_pago`) y no de una
+ * lista escrita acá: el día que agreguen un método octavo aparece solo. Un id
+ * que no esté en el catálogo cae en "Otro" en vez de desaparecer — la plata
+ * tiene que figurar aunque el catálogo esté desactualizado.
+ */
+export function totalesPorMetodo(
+  cobros: CobroDelDia[],
+  metodos: Map<number, string>,
+): TotalPorMetodo[] {
+  const acumulado = new Map<number, TotalPorMetodo>();
+
+  for (const c of cobros) {
+    // 0 es "sin método registrado": son los cobros viejos, anteriores a que el
+    // diálogo lo pidiera.
+    const metodoId = c.metodoPagoId ?? 0;
+    const fila = acumulado.get(metodoId) ?? {
+      metodoId,
+      metodo: metodos.get(metodoId) ?? (metodoId === 0 ? "Sin registrar" : "Otro"),
+      cantidad: 0,
+      total: 0,
+    };
+    fila.cantidad++;
+    fila.total += loQueEntro(c);
+    acumulado.set(metodoId, fila);
+  }
+
+  return [...acumulado.values()].sort((a, b) => b.total - a.total);
+}
+
+/** El id de "Efectivo" en `Metodos_de_pago`. Es la única fila que la caja
+ *  física distingue del resto: lo demás ya entró a una cuenta. */
+export const METODO_EFECTIVO = 1;
+
 // ── Tab 1 · Operaciones ─────────────────────────────────────────
 
 /**
@@ -119,9 +169,16 @@ export function columnasPorCobrador(
 
 // ── Tab 2 · Cierre de caja ──────────────────────────────────────
 
-export function balanceDelPeriodo(cobros: CobroDelDia[], hoy: string): BalancePeriodo {
+export function balanceDelPeriodo(
+  cobros: CobroDelDia[],
+  hoy: string,
+  metodos: Map<number, string> = new Map(),
+): BalancePeriodo {
+  const cobradas = cobros.filter((c) => esCobrado(c.estado));
   const esperado = sumaMontos(cobros);
-  const cobrado = sumaMontos(cobros.filter((c) => esCobrado(c.estado)));
+  // Lo cobrado se mide con lo abonado, no con lo esperado: un cobro parcial
+  // entró por menos y uno adelantado por más.
+  const cobrado = sumaCobrado(cobradas);
   const pendiente = sumaMontos(cobros.filter((c) => estadoVisible(c, hoy) === "Pendiente"));
   const deficit = sumaMontos(cobros.filter((c) => esDeficit(estadoVisible(c, hoy))));
 
@@ -131,6 +188,7 @@ export function balanceDelPeriodo(cobros: CobroDelDia[], hoy: string): BalancePe
     pendiente,
     deficit,
     efectividad: esperado > 0 ? Math.round((cobrado / esperado) * 100) : 0,
+    porMetodo: totalesPorMetodo(cobradas, metodos),
   };
 }
 
@@ -146,6 +204,7 @@ export function cierrePorCobrador(
   cobros: CobroDelDia[],
   cobradores: Cobrador[],
   hoy: string,
+  metodos: Map<number, string> = new Map(),
 ): CierreCobrador[] {
   const nombrePorId = new Map(cobradores.map((c) => [c.id, c.nombreCompleto]));
 
@@ -153,9 +212,13 @@ export function cierrePorCobrador(
     cobroId: cobro.id,
     clienteNombre: cobro.cliente.nombreCompleto,
     telefonos: cobro.cliente.telefonos,
-    monto: cobro.montoEsperado,
+    // Lo cobrado va por lo abonado; lo vencido no se cobró, así que ahí el
+    // número que importa es el que se esperaba.
+    monto: tipo === "vencido" ? cobro.montoEsperado : loQueEntro(cobro),
     tipo,
     cubreA: tipo === "apoyo" ? (nombrePorId.get(cobro.cobradorAsignadoId) ?? "—") : null,
+    metodo:
+      tipo === "vencido" ? null : (metodos.get(cobro.metodoPagoId ?? 0) ?? "Sin registrar"),
   });
 
   return cobradores
@@ -172,11 +235,19 @@ export function cierrePorCobrador(
         (c) => c.cobradorAsignadoId === cob.id && estadoVisible(c, hoy) === "Vencido",
       );
 
+      // Todo lo que pasó por su mano en el período, propio o cubriendo a otro.
+      const cobradas = [...propias, ...apoyos];
+      const porMetodo = totalesPorMetodo(cobradas, metodos);
+
       return {
         cobradorId: cob.id,
         nombre: cob.nombreCompleto,
         color: colorCobrador(idx),
-        aEntregar: sumaMontos(propias) + sumaMontos(apoyos),
+        aEntregar: sumaCobrado(cobradas),
+        porMetodo,
+        // Lo que trae encima al cerrar el día. Una transferencia ya está en la
+        // cuenta: pedírsela también era contarla dos veces.
+        enEfectivo: porMetodo.find((m) => m.metodoId === METODO_EFECTIVO)?.total ?? 0,
         items: [
           ...propias.map((c) => fila(c, "propio")),
           ...apoyos.map((c) => fila(c, "apoyo")),

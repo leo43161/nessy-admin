@@ -13,7 +13,9 @@ import {
   distribucionDeEstados,
   esApoyo,
   estadoVisible,
+  METODO_EFECTIVO,
   performancePorCobrador,
+  totalesPorMetodo,
 } from "./agregados.ts";
 import type { Cobrador, CobroDelDia, PagoEstado } from "../types/index.ts";
 
@@ -30,9 +32,14 @@ function cuota(
   fecha: string,
   monto: number,
   cobradoPor: number | null = null,
+  metodoPagoId: number | null = null,
+  montoAbonado: number | null = null,
 ): CobroDelDia {
   seq++;
   return {
+    // Una cuota cobrada trae lo abonado y el método; una pendiente, no.
+    montoAbonado: estado === "Pagado" ? (montoAbonado ?? monto) : null,
+    metodoPagoId: estado === "Pagado" ? (metodoPagoId ?? METODO_EFECTIVO) : null,
     id: seq,
     planId: seq,
     planNombre: "Plan",
@@ -52,7 +59,14 @@ function cuota(
       dni: `3000000${seq}`,
       nombreCompleto: `Cliente ${seq}`,
       status: "Activo",
+      email: null,
+      codigoPostal: null,
       direccion: null,
+      casaODepto1: null,
+      direccionAlternativa: null,
+      casaODepto2: null,
+      img: null,
+      fechaNacimiento: null,
       ubicacionCobro: null,
       idLocalidad: 1,
       localidadNombre: "Centro",
@@ -190,5 +204,75 @@ const cruzados = cobrosCruzados(COBROS);
 assert.equal(cruzados.length, 1);
 assert.equal(cruzados[0].asignadoA, "Luis F");
 assert.equal(cruzados[0].cobradoPor, "Diego P");
+
+// ── Cierre por método de pago ─────────────────────────────────────────────
+//
+// Lo que se pidió: en el cierre tiene que verse CUÁNTA plata trajo cada
+// cobrador POR CADA MÉTODO. Sin eso, "a entregar" mezcla el efectivo que
+// trae en el bolsillo con una transferencia que ya está en la cuenta, y al
+// cerrar el día se le pide plata que nadie tiene que entregar.
+const METODOS = new Map([
+  [1, "Efectivo"],
+  [2, "Transferencia"],
+  [7, "Mercado Pago"],
+]);
+
+// Marcos cobra tres: 10.000 efectivo, 25.000 transferencia, 5.000 Mercado Pago.
+const MIXTO = [
+  cuota(1, "Pagado", "2026-06-09", 10_000, 1, 1),
+  cuota(1, "Pagado", "2026-06-09", 25_000, 1, 2),
+  cuota(1, "Pagado", "2026-06-09", 5_000, 1, 7),
+];
+
+const [marcosCierre] = cierrePorCobrador(MIXTO, [COBRADORES[0]], HOY, METODOS);
+
+assert.equal(marcosCierre.aEntregar, 40_000, "el total no cambia");
+assert.equal(marcosCierre.enEfectivo, 10_000, "pero solo 10.000 los trae encima");
+assert.deepEqual(
+  marcosCierre.porMetodo.map((m) => [m.metodo, m.total]),
+  [
+    ["Transferencia", 25_000],
+    ["Efectivo", 10_000],
+    ["Mercado Pago", 5_000],
+  ],
+  "un renglón por método, de mayor a menor",
+);
+assert.equal(
+  marcosCierre.porMetodo.reduce((s, m) => s + m.total, 0),
+  marcosCierre.aEntregar,
+  "el desglose por método tiene que sumar exactamente lo que se entrega",
+);
+
+// Un método que no está en el catálogo no puede hacer desaparecer la plata.
+const desconocido = totalesPorMetodo([cuota(1, "Pagado", "2026-06-09", 7_000, 1, 99)], METODOS);
+assert.deepEqual(
+  desconocido.map((m) => [m.metodo, m.total]),
+  [["Otro", 7_000]],
+);
+
+// Un cobro viejo sin método registrado tampoco.
+const sinMetodo = totalesPorMetodo([{ ...cuota(1, "Pagado", "2026-06-09", 3_000, 1), metodoPagoId: null }], METODOS);
+assert.deepEqual(
+  sinMetodo.map((m) => [m.metodo, m.total]),
+  [["Sin registrar", 3_000]],
+);
+
+// ── Lo que entra en la caja es lo ABONADO, no lo esperado ──────────────────
+//
+// Un cobro parcial entró por menos de lo que decía la cuota. Sumando el
+// esperado, el cierre le reclamaba al cobrador plata que el cliente no pagó.
+const parcial = cuota(1, "Pagado", "2026-06-09", 30_000, 1, 1, 12_000);
+const [conParcial] = cierrePorCobrador([parcial], [COBRADORES[0]], HOY, METODOS);
+assert.equal(conParcial.aEntregar, 12_000, "entra lo que el cliente pagó");
+assert.equal(conParcial.items[0].monto, 12_000);
+
+const balanceParcial = balanceDelPeriodo([parcial], HOY, METODOS);
+assert.equal(balanceParcial.esperado, 30_000, "lo esperado sigue siendo la cuota entera");
+assert.equal(balanceParcial.cobrado, 12_000);
+assert.equal(
+  balanceParcial.porMetodo.reduce((s, m) => s + m.total, 0),
+  balanceParcial.cobrado,
+  "el desglose global también cierra",
+);
 
 console.log("✓ agregados.ts — todos los chequeos pasan");

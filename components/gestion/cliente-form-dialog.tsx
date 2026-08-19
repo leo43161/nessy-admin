@@ -22,35 +22,47 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MapaCobro } from "@/components/gestion/mapa-cobro";
+import {
+  DATOS_PERSONA_VACIOS,
+  DatosPersonaFields,
+} from "@/components/gestion/datos-persona";
 import { esTelefonoGuardable, TelefonosInput } from "@/components/gestion/telefono-input";
 import { ReferentesEditor } from "@/components/gestion/referentes-editor";
 import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { guardarCliente } from "@/store/slices/clientes.slice";
 import { useLocalidades } from "@/hooks/use-catalogos";
+import { LOCALIDAD_POR_DEFECTO } from "@/lib/constants";
 import type { ClienteListado, ClientePayload } from "@/types";
 
 const VACIO: ClientePayload = {
+  ...DATOS_PERSONA_VACIOS,
   dni: "",
   nombreCompleto: "",
-  email: null,
-  direccion: null,
   ubicacionCobro: null,
-  idLocalidad: null,
   telefonos: [""],
   cobradorId: null,
 };
 
 function aPayload(cliente: ClienteListado | null): ClientePayload {
   if (!cliente) return VACIO;
+  // El listado ya trae los DatosPersona completos, así que el formulario abre
+  // con lo que hay cargado. Antes se ponía `email: null` a mano y los campos
+  // que el formulario no mostraba viajaban vacíos en cada edición.
   return {
     id: cliente.id,
     dni: cliente.dni,
     nombreCompleto: cliente.nombreCompleto,
-    email: null,
+    email: cliente.email,
+    codigoPostal: cliente.codigoPostal,
     direccion: cliente.direccion,
-    ubicacionCobro: cliente.ubicacionCobro,
+    casaODepto1: cliente.casaODepto1,
+    direccionAlternativa: cliente.direccionAlternativa,
+    casaODepto2: cliente.casaODepto2,
+    img: cliente.img,
+    fechaNacimiento: cliente.fechaNacimiento,
     idLocalidad: cliente.idLocalidad,
+    ubicacionCobro: cliente.ubicacionCobro,
     telefonos: cliente.telefonos.length ? cliente.telefonos.map((t) => t.numero) : [""],
     cobradorId: cliente.cobradorAsignadoId,
   };
@@ -77,8 +89,10 @@ export function ClienteFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* A pantalla completa en el teléfono: con el mapa adentro, el formulario
           es más alto que cualquier modal y en un 90dvh quedaba haciendo scroll
-          dentro de una ventanita. */}
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
+          dentro de una ventanita.
+          En escritorio 2xl y no lg: son once campos más el mapa, y en una
+          columna angosta la ficha entera queda como un rollo de scroll. */}
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
         <ClienteForm
           key={cliente?.id ?? "nuevo"}
           cliente={cliente}
@@ -155,34 +169,37 @@ function ClienteForm({
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* Sin select de estado: dar de baja a un cliente es `Clientes.Activo`
             (borrado lógico, botón eliminar de la lista), no esta columna. */}
-        <div className="space-y-1.5">
-          <Label htmlFor="dni">DNI *</Label>
-          <Input
-            id="dni"
-            value={form.dni}
-            onChange={(e) => set("dni", e.target.value)}
-            inputMode="numeric"
-            autoFocus
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="dni">DNI *</Label>
+            <Input
+              id="dni"
+              value={form.dni}
+              onChange={(e) => set("dni", e.target.value)}
+              inputMode="numeric"
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="nombre">Nombre completo *</Label>
+            <Input
+              id="nombre"
+              value={form.nombreCompleto}
+              onChange={(e) => set("nombreCompleto", e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="nombre">Nombre completo *</Label>
-          <Input
-            id="nombre"
-            value={form.nombreCompleto}
-            onChange={(e) => set("nombreCompleto", e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="direccion">Dirección</Label>
-          <Input
-            id="direccion"
-            value={form.direccion ?? ""}
-            onChange={(e) => set("direccion", e.target.value || null)}
-          />
-        </div>
+        {/* Las dos direcciones, el email, el código postal, la fecha de
+            nacimiento y la foto. Es el mismo bloque que usa el garante: en la
+            base son las mismas columnas. */}
+        <DatosPersonaFields
+          prefijo="cli"
+          valores={form}
+          onChange={(d) => setForm((f) => ({ ...f, ...d }))}
+          conLocalidad={false}
+        />
 
         {/* El punto de cobro va en el mapa y no en un input de texto: esa
             columna es la que los SPs de cobro comparan contra la ubicación del
@@ -195,7 +212,9 @@ function ClienteForm({
           <div className="space-y-1.5">
             <Label htmlFor="localidad">Localidad</Label>
             <Select
-              value={form.idLocalidad?.toString() ?? ""}
+              // Sin elegir queda San Miguel de Tucumán, que es donde está casi
+              // toda la cartera.
+              value={(form.idLocalidad ?? LOCALIDAD_POR_DEFECTO).toString()}
               onValueChange={(v) => set("idLocalidad", Number(v))}
             >
               <SelectTrigger id="localidad" className="w-full">

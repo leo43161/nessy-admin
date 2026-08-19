@@ -4,6 +4,7 @@ import { calcularCumplimiento } from "@/lib/cumplimiento";
 import { EMPRESA_NOMBRE, EMPRESA_PIE, MARCA_COLORES } from "@/lib/marca";
 import { IsotipoPdf } from "@/lib/pdf/isotipo-pdf";
 import { soloElPlan } from "@/lib/estado-cuenta-por-plan";
+import { asientosDelPlan, fechaCorta } from "@/lib/asientos";
 import type { EstadoDeCuenta, EstadoDeCuentaPlan } from "@/types";
 
 // El nombre, el logo y los colores salen de `lib/marca.ts`: es el único archivo
@@ -178,13 +179,6 @@ const styles = StyleSheet.create({
   },
 });
 
-/** "2026-07-28" → "28/07/26" (formato compacto de la tabla, como el resumen bancario) */
-function fechaCorta(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${d}/${m}/${y.slice(2)}`;
-}
-
 /** Referencia del comprobante: "4897C20260728" (cliente + fecha de emisión) */
 function comprobante(ec: EstadoDeCuenta): string {
   return `${ec.clienteId}C${ec.generadoEl.slice(0, 10).replace(/-/g, "")}`;
@@ -193,94 +187,6 @@ function comprobante(ec: EstadoDeCuenta): string {
 /** Importe sin el "$": la columna ya está rotulada. "45000" → "45.000,00" */
 function num(monto: number): string {
   return fmtMoney(monto).replace("$ ", "");
-}
-
-/**
- * Movimientos del plan como asiento contable con saldo corrido, al estilo del
- * resumen bancario: el plan nace como débito por el monto total y cada cobro
- * lo acredita. El saldo final coincide con `plan.pendiente`.
- */
-interface Asiento {
-  fecha: string;
-  concepto: string;
-  cuota: string;
-  vencimiento: string;
-  debito: number | null;
-  credito: number | null;
-  saldo: number;
-  /** Atraso o recargo: la fila va con el resaltador rojo y letra blanca. */
-  alarma: boolean;
-}
-
-function asientosDelPlan(plan: EstadoDeCuentaPlan): Asiento[] {
-  // Un extracto va del movimiento más viejo al más nuevo, y el saldo corrido
-  // solo tiene sentido en ese orden.
-  //
-  // Antes se hacía `.reverse()` dando por sentado que la API los mandaba del
-  // más nuevo al más viejo. No es así: el asiento salía al revés y el "ALTA
-  // PLAN" quedaba fechado con la ÚLTIMA cuota — una fecha futura, como si el
-  // plan hubiera empezado el día que vence lo que todavía no se pagó.
-  // Se ordena por fecha en vez de suponer.
-  const cronologico = [...plan.movimientos].sort((a, b) =>
-    (a.fecha ?? "").localeCompare(b.fecha ?? ""),
-  );
-
-  const filas: Asiento[] = [
-    {
-      fecha: "00/00/00",
-      concepto: "SALDO ANTERIOR",
-      cuota: "",
-      vencimiento: "",
-      debito: null,
-      credito: null,
-      saldo: 0,
-      alarma: false,
-    },
-    {
-      fecha: fechaCorta(cronologico[0]?.fecha),
-      concepto: `ALTA PLAN ${plan.nombre.toUpperCase()}`,
-      cuota: "",
-      vencimiento: "",
-      debito: plan.montoTotal,
-      credito: null,
-      saldo: plan.montoTotal,
-      alarma: false,
-    },
-  ];
-
-  let saldo = plan.montoTotal;
-
-  cronologico.forEach((m, i) => {
-    // Un movimiento de Recargo es un débito (una advertencia con monto), no
-    // un crédito: nunca resta del saldo.
-    const cobrado = m.estado === "Pagado";
-    if (cobrado) saldo -= m.monto;
-    filas.push({
-      fecha: fechaCorta(m.fecha),
-      concepto: m.concepto.toUpperCase(),
-      cuota: String(i + 1),
-      vencimiento: fechaCorta(m.fecha),
-      debito: null,
-      credito: cobrado ? m.monto : null,
-      saldo,
-      alarma: m.estado === "Atrasado" || m.estado === "Recargo",
-    });
-  });
-
-  if (plan.proximaCuota) {
-    filas.push({
-      fecha: "",
-      concepto: "PROXIMA CUOTA A VENCER",
-      cuota: String(plan.cuotasPagadas + 1),
-      vencimiento: fechaCorta(plan.proximaCuota.fecha),
-      debito: plan.proximaCuota.monto,
-      credito: null,
-      saldo,
-      alarma: false,
-    });
-  }
-
-  return filas;
 }
 
 function PlanSection({ plan }: { plan: EstadoDeCuentaPlan }) {

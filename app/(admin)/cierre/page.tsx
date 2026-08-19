@@ -12,16 +12,28 @@ import { LedgerCobrador } from "@/components/cierre/ledger-cobrador";
 import { balanceDelPeriodo, cierrePorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
 import { useAccionesDePeriodo } from "@/hooks/use-acciones-periodo";
+import { useMetodosDePago } from "@/hooks/use-catalogos";
 
 export default function CierrePage() {
   const { cobros, cobradores, hoy, cargando, error, etiquetaRango, refrescar } = usePeriodo();
   const router = useRouter();
   const accionesDePeriodo = useAccionesDePeriodo();
 
-  const balance = useMemo(() => balanceDelPeriodo(cobros, hoy), [cobros, hoy]);
+  // Los nombres de los métodos salen del catálogo, no de una lista escrita
+  // acá: si mañana agregan uno, aparece solo en el desglose.
+  const metodos = useMetodosDePago();
+  const nombrePorMetodo = useMemo(
+    () => new Map(metodos.map((m) => [m.id, m.nombre])),
+    [metodos],
+  );
+
+  const balance = useMemo(
+    () => balanceDelPeriodo(cobros, hoy, nombrePorMetodo),
+    [cobros, hoy, nombrePorMetodo],
+  );
   const cierres = useMemo(
-    () => cierrePorCobrador(cobros, cobradores, hoy),
-    [cobros, cobradores, hoy],
+    () => cierrePorCobrador(cobros, cobradores, hoy, nombrePorMetodo),
+    [cobros, cobradores, hoy, nombrePorMetodo],
   );
 
   return (

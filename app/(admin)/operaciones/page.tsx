@@ -13,6 +13,9 @@ import { ClienteDetailDialog } from "@/components/gestion/cliente-detail-dialog"
 import { columnasPorCobrador } from "@/lib/agregados";
 import { usePeriodo } from "@/hooks/use-periodo";
 import { useAccionesDePeriodo } from "@/hooks/use-acciones-periodo";
+import { useAutoRefresco } from "@/hooks/use-auto-refresco";
+import { AUTO_REFRESCO_SEGUNDOS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export default function OperacionesPage() {
   const { cobros, cobradores, hoy, cargando, error, etiquetaRango, refrescar } = usePeriodo();
@@ -25,10 +28,24 @@ export default function OperacionesPage() {
     [cobros, cobradores, hoy],
   );
 
+  // El tablero se queda abierto mientras los cobradores están en la calle, así
+  // que se actualiza solo cada 10 segundos. El contador va a la vista para que
+  // se sepa que lo que se está mirando es de recién.
+  const restante = useAutoRefresco(refrescar, AUTO_REFRESCO_SEGUNDOS);
+
   return (
     <>
       <SectionHeader titulo="Tareas del período" subtitulo={etiquetaRango}>
-        <CountBadge>{cobros.length}</CountBadge>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className="flex items-center gap-1 font-mono text-[0.7rem] text-muted-foreground"
+            title={`El tablero se actualiza solo cada ${AUTO_REFRESCO_SEGUNDOS} segundos`}
+          >
+            <RefreshCw className={cn("size-3", cargando && "animate-spin")} />
+            {restante}s
+          </span>
+          <CountBadge>{cobros.length}</CountBadge>
+        </div>
       </SectionHeader>
 
       {cargando ? (

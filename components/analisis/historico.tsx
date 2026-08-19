@@ -233,11 +233,15 @@ export function Historico({ rango }: { rango: RangoFechas | null }) {
 /**
  * El desglose por método de pago.
  *
- * El bloque con un renglón por método lo agrega `sql/fix_metodos_de_pago.sql`.
- * Mientras ese script no esté aplicado, la base solo sabe separar efectivo de
- * transferencia, así que se muestra eso y se avisa qué falta — mostrar dos
- * columnas como si fueran el total es justamente el problema que el script
- * viene a arreglar.
+ * El bloque con un renglón por método existe en la base desde
+ * `sql/fix_metodos_de_pago.sql`, pero **nunca llegaba**: el bloque 9 del mismo
+ * SP consultaba `Clientes.fecha_de_creacion`, una columna que no existe (es
+ * `Fecha_Creacion`), y el 1054 cortaba el CALL antes de los tres últimos
+ * bloques. Lo arregla `sql/fix_estadisticas_clientes_nuevos.sql`.
+ *
+ * El fallback de abajo se queda: si algún día vuelve a faltar un bloque, es
+ * preferible mostrar los tres agregados que tiene el bloque 1 y decirlo, antes
+ * que dos columnas que se leen como si fueran el total.
  */
 function PorMetodo({ datos }: { datos: EstadisticasHistoricas }) {
   if (datos.recaudado === 0) {
@@ -255,7 +259,7 @@ function PorMetodo({ datos }: { datos: EstadisticasHistoricas }) {
         <p className="text-xs text-muted-foreground">
           El detalle por método —Mercado Pago, tarjetas, cheque— aparece acá cuando se aplique{" "}
           <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[0.9em]">
-            sql/fix_metodos_de_pago.sql
+            sql/fix_estadisticas_clientes_nuevos.sql
           </code>{" "}
           en la base.
         </p>

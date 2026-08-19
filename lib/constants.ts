@@ -25,3 +25,22 @@ export const COBRADOR_COLORS = [
 export function colorCobrador(indice: number): string {
   return COBRADOR_COLORS[indice % COBRADOR_COLORS.length];
 }
+
+/**
+ * San Miguel de Tucumán en `Localidades_y_regiones`.
+ *
+ * Es la localidad de casi toda la cartera, así que las fichas nuevas nacen
+ * con ella elegida en vez de con el select vacío. Está fijo y no se busca por
+ * nombre porque el id de una semilla no cambia, y buscar por texto haría que
+ * un acento distinto en la base dejara el default en blanco sin avisar.
+ */
+export const LOCALIDAD_POR_DEFECTO = 1;
+
+/**
+ * Cada cuánto se refresca solo el tablero de operaciones.
+ *
+ * Diez segundos es lo que pidió el cliente y es razonable: son dos requests
+ * (`/cuotas` y el contexto) sobre una cartera chica. Si la cartera crece,
+ * subirlo antes que sacarlo — el valor de ese tablero es estar al día.
+ */
+export const AUTO_REFRESCO_SEGUNDOS = 10;

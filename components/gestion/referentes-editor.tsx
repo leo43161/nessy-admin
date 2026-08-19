@@ -15,6 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TelefonosInput, esTelefonoGuardable } from "@/components/gestion/telefono-input";
+import {
+  DATOS_PERSONA_VACIOS,
+  DatosPersonaFields,
+} from "@/components/gestion/datos-persona";
 import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -26,6 +30,7 @@ import {
   guardarReferentesDeCliente,
   type ReferenteSuelto,
 } from "@/services/referentes.service";
+import type { DatosPersona } from "@/types";
 
 interface ReferentesEditorProps {
   clienteId: number;
@@ -240,7 +245,10 @@ function AltaReferenteDialog({
 }) {
   const [dni, setDni] = useState("");
   const [nombre, setNombre] = useState("");
-  const [direccion, setDireccion] = useState("");
+  // Los mismos datos de contacto que el cliente: en la base `Referentes`
+  // tiene exactamente las mismas columnas, `fecha_de_nacimiento` incluida.
+  // El formulario pedía DNI, nombre y una dirección.
+  const [datos, setDatos] = useState<DatosPersona>(DATOS_PERSONA_VACIOS);
   const [telefonos, setTelefonos] = useState<string[]>([""]);
   const [guardando, setGuardando] = useState(false);
 
@@ -251,9 +259,9 @@ function AltaReferenteDialog({
     const guardables = telefonos.filter(esTelefonoGuardable);
     try {
       const id = await crearReferente({
+        ...datos,
         dni: dni.trim(),
         nombreCompleto: nombre.trim(),
-        direccion: direccion.trim() || null,
         telefonos: guardables,
       });
       toast.success("Referente creado.");
@@ -265,7 +273,7 @@ function AltaReferenteDialog({
       });
       setDni("");
       setNombre("");
-      setDireccion("");
+      setDatos(DATOS_PERSONA_VACIOS);
       setTelefonos([""]);
     } catch (e) {
       const msg =
@@ -279,7 +287,9 @@ function AltaReferenteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+      {/* Del ancho del formulario de cliente: tiene los mismos campos, y en el
+          modal chico de antes entraban tres. */}
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
         <DialogHeader>
           <DialogTitle>Nuevo referente</DialogTitle>
           <DialogDescription>
@@ -287,27 +297,23 @@ function AltaReferenteDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="ref-dni">DNI *</Label>
-          <Input
-            id="ref-dni"
-            value={dni}
-            onChange={(e) => setDni(e.target.value)}
-            inputMode="numeric"
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="ref-dni">DNI *</Label>
+            <Input
+              id="ref-dni"
+              value={dni}
+              onChange={(e) => setDni(e.target.value)}
+              inputMode="numeric"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ref-nombre">Nombre completo *</Label>
+            <Input id="ref-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="ref-nombre">Nombre completo *</Label>
-          <Input id="ref-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="ref-direccion">Dirección</Label>
-          <Input
-            id="ref-direccion"
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-          />
-        </div>
+
+        <DatosPersonaFields prefijo="ref" valores={datos} onChange={setDatos} />
 
         <TelefonosInput valores={telefonos} onChange={setTelefonos} />
 
