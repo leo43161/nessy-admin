@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ReceiptText } from "lucide-react";
+import { Loader2, MessageCircle, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +18,14 @@ import { NotasCliente } from "@/components/gestion/notas-cliente";
 import { ReferentesCliente } from "@/components/gestion/referentes-cliente";
 import { useMetodosDePago } from "@/hooks/use-catalogos";
 import { registrarCobro } from "@/services/cobros.service";
+import { enviarComprobante } from "@/lib/comprobante";
+import { estadoDeCuentaToText } from "@/lib/estado-cuenta";
 import { fmtMoney, formatFecha } from "@/lib/format";
 
 export interface CuotaACobrar {
   cuotaId: number;
+  /** La financiación de la cuota: es la que va en el comprobante */
+  planId: number;
   fecha: string;
   monto: number;
   planNombre: string;
@@ -31,6 +35,13 @@ export interface CuotaACobrar {
 interface CobroDialogProps {
   cuota: CuotaACobrar | null;
   clienteNombre: string;
+  clienteDni: string;
+  clienteDireccion: string | null;
+  /**
+   * A quién se le manda el comprobante en escritorio. En el celular el chat lo
+   * elige la hoja de compartir del sistema.
+   */
+  telefono: string | null;
   /** A nombre de quién entra la plata. Sin esto la API rechaza el cobro. */
   cobradorId: number | null;
   cobradorNombre: string | null;
@@ -49,6 +60,9 @@ interface CobroDialogProps {
 export function CobroDialog({
   cuota,
   clienteNombre,
+  clienteDni,
+  clienteDireccion,
+  telefono,
   cobradorId,
   cobradorNombre,
   open,
@@ -60,6 +74,9 @@ export function CobroDialog({
   const [montoEditado, setMontoEditado] = useState<string | null>(null);
   const [metodoElegido, setMetodoElegido] = useState<number | null>(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
+  /** Cobrado: falta mandarle el comprobante. Se muestra en vez de cerrar. */
+  const [cobrado, setCobrado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   if (!cuota) return null;
 
@@ -84,8 +101,41 @@ export function CobroDialog({
       setMontoEditado(null);
       setMetodoElegido(null);
       setNuevaFecha("");
+      setCobrado(false);
     }
     onOpenChange(abierto);
+  };
+
+  /**
+   * El comprobante del cobro, SIEMPRE de la financiación que se acaba de
+   * cobrar. Acá no hay selector a propósito: el admin no elige qué plan va en
+   * el comprobante de un cobro puntual — sería mandar el saldo de otra
+   * financiación como respaldo de esta. Para elegir está la ficha del cliente.
+   */
+  const enviarPdf = async () => {
+    setEnviando(true);
+    try {
+      const salio = await enviarComprobante({
+        clienteId: cuota.clienteId,
+        planId: cuota.planId,
+        cliente: {
+          nombreCompleto: clienteNombre,
+          dni: clienteDni,
+          direccion: clienteDireccion,
+          localidadNombre: null,
+        },
+        telefono,
+        texto: estadoDeCuentaToText,
+      });
+      if (salio) {
+        toast.success("Comprobante enviado.");
+        cerrar(false);
+      }
+    } catch {
+      toast.error("No se pudo generar el comprobante.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const cobrar = async () => {
@@ -103,7 +153,8 @@ export function CobroDialog({
         description: res.sinUbicacion ? "Sin ubicación: queda fuera de rango." : undefined,
       });
       onCobrado();
-      cerrar(false);
+      // No se cierra: queda ofrecido el comprobante de esta financiación.
+      setCobrado(true);
     } catch (e) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -136,7 +187,22 @@ export function CobroDialog({
           plegado
         />
 
-        {cobradorId == null ? (
+        {cobrado ? (
+          /* Cobrado. Lo único que queda es el comprobante, y es de ESTE plan:
+             no hay lista de financiaciones porque no hay nada que elegir. */
+          <div className="space-y-3">
+            <div className="rounded-lg border border-green-300 bg-green-50 px-3 py-2.5 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/50 dark:text-green-200">
+              <p className="font-bold">Cobro registrado</p>
+              <p className="text-[0.8rem]">
+                {fmtMoney(montoNum)} en {cuota.planNombre}.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              El comprobante es de esa financiación. Para mandar el de otra, o el de toda la
+              cuenta, entrá por la ficha del cliente.
+            </p>
+          </div>
+        ) : cobradorId == null ? (
           <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
             Este cliente no tiene cobrador asignado. Asignale uno antes de registrar el cobro: la
             API necesita saber a nombre de quién entra la plata.
@@ -207,12 +273,19 @@ export function CobroDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => cerrar(false)}>
-            Cancelar
+            {cobrado ? "Listo" : "Cancelar"}
           </Button>
-          <Button disabled={!puedeCobrar} onClick={cobrar}>
-            {registrando ? <Loader2 className="animate-spin" /> : <ReceiptText />}
-            Cobrar {fmtMoney(montoNum)}
-          </Button>
+          {cobrado ? (
+            <Button disabled={enviando} onClick={enviarPdf}>
+              {enviando ? <Loader2 className="animate-spin" /> : <MessageCircle />}
+              Enviar comprobante (PDF)
+            </Button>
+          ) : (
+            <Button disabled={!puedeCobrar} onClick={cobrar}>
+              {registrando ? <Loader2 className="animate-spin" /> : <ReceiptText />}
+              Cobrar {fmtMoney(montoNum)}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

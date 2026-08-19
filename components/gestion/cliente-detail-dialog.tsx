@@ -37,7 +37,7 @@ import {
   LEYENDA_RECLAMO,
   reclamoToText,
 } from "@/lib/estado-cuenta";
-import { enviarEstadoCuenta } from "@/lib/compartir";
+import { enviarComprobante } from "@/lib/comprobante";
 import { soloElPlan } from "@/lib/estado-cuenta-por-plan";
 import { PLAN_STATUS_BADGE } from "@/lib/status";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -73,7 +73,15 @@ export function ClienteDetailDialog({
   const [planAbierto, setPlanAbierto] = useState(false);
   const [cuotaACobrar, setCuotaACobrar] = useState<CuotaACobrar | null>(null);
   const [guardandoCobrador, setGuardandoCobrador] = useState(false);
-  const [enviandoReclamo, setEnviandoReclamo] = useState(false);
+  /**
+   * QUÉ envío está en curso, identificado por su botón: "cuenta",
+   * "reclamo" o "plan-46". `null` = ninguno.
+   *
+   * Es una clave por botón y no un booleano ni el id del plan: con el plan
+   * solo, el botón general y el de la financiación elegida se prendían juntos,
+   * y con un booleano se prendían todos.
+   */
+  const [enviando, setEnviando] = useState<string | null>(null);
   /** Qué plan lleva el PDF del reclamo. `undefined` = toda la cuenta. */
   const [planDelPdf, setPlanDelPdf] = useState<number | undefined>(undefined);
 
@@ -109,7 +117,14 @@ export function ClienteDetailDialog({
     }
   };
 
-  const texto = data ? estadoDeCuentaToText(data.estadoDeCuenta) : "";
+  /**
+   * El texto sale del MISMO recorte que el PDF.
+   *
+   * Antes copiaba y mandaba siempre la cuenta entera, aunque el selector
+   * dijera un plan: el mensaje hablaba de un saldo y el adjunto de otro.
+   */
+  const ecElegido = data ? soloElPlan(data.estadoDeCuenta, planDelPdf) : null;
+  const texto = ecElegido ? estadoDeCuentaToText(ecElegido) : "";
 
   const copiarEstado = async () => {
     try {
@@ -121,45 +136,41 @@ export function ClienteDetailDialog({
   };
 
   /**
-   * Reclamo: el único envío con el PDF adjunto.
+   * Los dos envíos con PDF de la ficha: el comprobante y el reclamo.
    *
    * En el celular `navigator.share()` abre la hoja de compartir con el archivo
    * y ahí se elige el chat; en escritorio no existe compartir archivos, así que
    * baja el PDF y abre WhatsApp con el texto (dos pasos, no hay otra).
+   *
+   * Los dos respetan el selector de arriba, así que desde acá se puede mandar
+   * el de UNA financiación o el de la cuenta entera. Es el único lugar donde
+   * se elige: en un cobro o un reclamo del tablero, el plan lo fija la cuota.
    */
-  const enviarReclamo = async () => {
+  const enviarPdf = async (comoReclamo: boolean, planForzado?: number) => {
     if (!data) return;
-    setEnviandoReclamo(true);
+    // `planForzado` viene del botón de cada financiación: ese manda sobre el
+    // selector de arriba, que es el de los botones generales.
+    const plan = planForzado ?? planDelPdf;
+    setEnviando(planForzado ? `plan-${planForzado}` : comoReclamo ? "reclamo" : "cuenta");
     try {
-      const { archivoEstadoCuentaPdf, descargarArchivo } = await import(
-        "@/lib/pdf/estado-cuenta-pdf"
-      );
-      const archivo = await archivoEstadoCuentaPdf(
-        data.estadoDeCuenta,
-        {
+      const salio = await enviarComprobante({
+        clienteId: data.estadoDeCuenta.clienteId,
+        planId: plan,
+        cliente: {
           nombreCompleto: data.cliente.nombreCompleto,
           dni: data.cliente.dni,
           direccion: data.cliente.direccion,
           localidadNombre: data.localidadNombre,
         },
-        LEYENDA_RECLAMO,
-        planDelPdf,
-      );
-
-      const salio = await enviarEstadoCuenta(
-        archivo,
-        // El texto se recorta al mismo plan que el PDF: si no, el mensaje
-        // reclama el vencido de toda la cuenta y el adjunto muestra otro
-        // número. El cliente ve dos cifras distintas y no paga ninguna.
-        reclamoToText(soloElPlan(data.estadoDeCuenta, planDelPdf)),
-        data.telefonos[0]?.numero ?? null,
-        descargarArchivo,
-      );
-      if (salio) toast.success("Reclamo enviado.");
+        telefono: data.telefonos[0]?.numero ?? null,
+        leyenda: comoReclamo ? LEYENDA_RECLAMO : undefined,
+        texto: comoReclamo ? reclamoToText : estadoDeCuentaToText,
+      });
+      if (salio) toast.success(comoReclamo ? "Reclamo enviado." : "Estado de cuenta enviado.");
     } catch {
-      toast.error("No se pudo generar el reclamo.");
+      toast.error("No se pudo generar el PDF.");
     } finally {
-      setEnviandoReclamo(false);
+      setEnviando(null);
     }
   };
 
@@ -287,17 +298,20 @@ export function ClienteDetailDialog({
                     className="text-red-600 dark:text-red-400"
                   />
                 </div>
-                {/* Con un solo plan no hay nada que elegir. */}
+                {/* Con un solo plan no hay nada que elegir.
+                    Este selector manda sobre TODO lo que sale de acá: el texto
+                    que se copia, el que va por WhatsApp y el PDF. Es el único
+                    lugar de la app donde se elige entre financiaciones. */}
                 {data.estadoDeCuenta.planes.length > 1 && (
                   <div className="mb-2 space-y-1.5">
-                    <Label htmlFor="plan-del-reclamo">Qué plan va en el PDF</Label>
+                    <Label htmlFor="plan-del-reclamo">Qué se manda</Label>
                     <select
                       id="plan-del-reclamo"
                       value={planDelPdf ?? ""}
                       onChange={(e) =>
                         setPlanDelPdf(e.target.value === "" ? undefined : Number(e.target.value))
                       }
-                      disabled={enviandoReclamo}
+                      disabled={enviando !== null}
                       className="h-11 w-full rounded-md border border-input bg-transparent px-3.5 text-base shadow-xs disabled:opacity-50"
                     >
                       <option value="">
@@ -317,23 +331,37 @@ export function ClienteDetailDialog({
                     <Copy />
                     Copiar
                   </Button>
+                  {/* Solo el texto, sin adjunto: para una consulta rápida. */}
                   <WhatsappButton telefonos={data.telefonos} mensaje={texto}>
                     <Button variant="secondary" size="sm" disabled={data.telefonos.length === 0}>
                       <MessageCircle />
-                      Estado de cuenta
+                      Por texto
                     </Button>
                   </WhatsappButton>
-                  {/* El reclamo solo tiene sentido con cuotas vencidas, y es el
-                      único envío que lleva el PDF adjunto. */}
+                  {/* El estado de cuenta con el PDF adjunto. Faltaba: desde el
+                      panel el único envío con PDF era el reclamo, así que para
+                      mandarle el comprobante a un cliente al día no había por
+                      dónde. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={enviando !== null || data.telefonos.length === 0}
+                    onClick={() => enviarPdf(false)}
+                  >
+                    {enviando === "cuenta" ? <Loader2 className="animate-spin" /> : <ReceiptText />}
+                    Estado de cuenta (PDF)
+                  </Button>
+                  {/* El reclamo solo tiene sentido con cuotas vencidas: es el
+                      mismo PDF pero encabezado por lo que se debe. */}
                   {data.estadoDeCuenta.totalVencido > 0 && (
                     <Button
                       size="sm"
                       variant="destructive"
-                      disabled={enviandoReclamo || data.telefonos.length === 0}
-                      onClick={enviarReclamo}
+                      disabled={enviando !== null || data.telefonos.length === 0}
+                      onClick={() => enviarPdf(true)}
                     >
-                      {enviandoReclamo ? <Loader2 className="animate-spin" /> : <FileWarning />}
-                      {enviandoReclamo ? "Generando…" : "Enviar reclamo (PDF)"}
+                      {enviando === "reclamo" ? <Loader2 className="animate-spin" /> : <FileWarning />}
+                      {enviando === "reclamo" ? "Generando…" : "Enviar reclamo (PDF)"}
                     </Button>
                   )}
                 </div>
@@ -396,10 +424,27 @@ export function ClienteDetailDialog({
                           )}
                         </div>
 
-                        <div className="mt-2 flex gap-1.5">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           <Button variant="outline" size="xs" onClick={() => abrirPlan(plan)}>
                             <Pencil />
                             Editar
+                          </Button>
+                          {/* El comprobante de ESTA financiación, sin pasar por
+                              el selector de arriba. Es el camino corto para lo
+                              que más se hace: el cliente pregunta por un plan
+                              en particular y hay que mandarle ese. */}
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            disabled={enviando !== null || data.telefonos.length === 0}
+                            onClick={() => enviarPdf(false, plan.planId)}
+                          >
+                            {enviando === `plan-${plan.planId}` ? (
+                              <Loader2 className="animate-spin" />
+                            ) : (
+                              <ReceiptText />
+                            )}
+                            PDF
                           </Button>
                           {/* Sin cuota pendiente no hay nada que cobrar: el plan
                               está terminado o no tiene cronograma. */}
@@ -409,6 +454,7 @@ export function ClienteDetailDialog({
                               onClick={() =>
                                 setCuotaACobrar({
                                   cuotaId: plan.proximaCuota!.cuotaId!,
+                                  planId: plan.planId,
                                   fecha: plan.proximaCuota!.fecha,
                                   monto: plan.proximaCuota!.monto,
                                   planNombre: plan.nombre,
@@ -470,6 +516,9 @@ export function ClienteDetailDialog({
           <CobroDialog
             cuota={cuotaACobrar}
             clienteNombre={data.cliente.nombreCompleto}
+            clienteDni={data.cliente.dni}
+            clienteDireccion={data.cliente.direccion}
+            telefono={data.telefonos[0]?.numero ?? null}
             cobradorId={cobradorId}
             cobradorNombre={data.cobradorAsignadoNombre}
             open={cuotaACobrar !== null}

@@ -18,9 +18,8 @@ import { PlantillasDialog } from "@/components/gestion/plantillas-dialog";
 import { aplicarPlantilla, type DatosMensaje } from "@/lib/plantillas";
 import { whatsappUrl } from "@/lib/format";
 import { LEYENDA_RECLAMO } from "@/lib/estado-cuenta";
-import { enviarEstadoCuenta } from "@/lib/compartir";
+import { enviarComprobante } from "@/lib/comprobante";
 import { getPlantillas, type Plantilla } from "@/services/plantillas.service";
-import { getEstadoDeCuenta } from "@/services/clientes.service";
 import { marcarReclamoEnviado } from "@/services/cobros.service";
 import type { Telefono } from "@/types";
 
@@ -134,27 +133,25 @@ export function MensajeWhatsappDialog({
 
     setEnviando(true);
     try {
-      const { estadoDeCuenta } = await getEstadoDeCuenta(reclamo.clienteId);
-      const { archivoEstadoCuentaPdf, descargarArchivo } = await import(
-        "@/lib/pdf/estado-cuenta-pdf"
-      );
-
-      const archivo = await archivoEstadoCuentaPdf(
-        estadoDeCuenta,
-        {
+      // Solo el plan de la cuota que se reclama. Antes iba la cuenta entera:
+      // se reclamaba una cuota de una financiación y el comprobante mostraba
+      // el saldo de todas.
+      //
+      // El texto es el que escribió el usuario con la plantilla, así que se
+      // manda tal cual — a diferencia de la ficha, acá no lo genera el sistema.
+      const salio = await enviarComprobante({
+        clienteId: reclamo.clienteId,
+        planId: reclamo.planId,
+        cliente: {
           nombreCompleto: reclamo.clienteNombre,
           dni: reclamo.clienteDni,
           direccion: reclamo.clienteDireccion,
           localidadNombre: null,
         },
-        LEYENDA_RECLAMO,
-        // Solo el plan de la cuota que se reclama. Antes iba la cuenta entera:
-        // se reclamaba una cuota de una financiación y el comprobante mostraba
-        // el saldo de todas.
-        reclamo.planId,
-      );
-
-      const salio = await enviarEstadoCuenta(archivo, texto, numero, descargarArchivo);
+        telefono: numero,
+        leyenda: LEYENDA_RECLAMO,
+        texto: () => texto,
+      });
       if (!salio) return; // canceló la hoja de compartir: no se mandó nada
 
       await marcarReclamoEnviado(reclamo.cuotaId);

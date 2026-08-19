@@ -171,11 +171,21 @@ export async function eliminarCliente(id: number): Promise<number> {
  * donde no hace falta la ficha entera: solo el saldo y los movimientos que
  * entran en el PDF.
  */
-export async function getEstadoDeCuenta(clienteId: number): Promise<{
+export async function getEstadoDeCuenta(
+  clienteId: number,
+  /**
+   * Una sola financiación.
+   *
+   * La API lo resuelve con `sp_VerEstadoDeCuentaSingular`: trae las mismas
+   * columnas pero solo las filas de ese plan, así que el saldo y el desglose
+   * ya vienen calculados sobre él. No hay nada que recortar de este lado.
+   */
+  planId?: number,
+): Promise<{
   estadoDeCuenta: EstadoDeCuenta;
 }> {
   const { data } = await api.get<RespuestaEstadoCuenta>("/estado_cuenta", {
-    params: { id_cliente: clienteId },
+    params: { id_cliente: clienteId, id_plan: planId },
   });
 
   return { estadoDeCuenta: aEstadoDeCuenta(data, new Date().toISOString().slice(0, 10)) };
