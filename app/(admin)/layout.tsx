@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           que hay detrás; el botón se los devuelve. */}
       <div
         id={RANURA_ACCIONES}
-        className="pointer-events-none fixed bottom-[calc(4.25rem_+_env(safe-area-inset-bottom))] left-0 z-50 pl-4 sm:bottom-6 sm:left-18"
+        className="pointer-events-none fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 z-50 pl-4 sm:bottom-6 sm:left-18"
       />
     </div>
   );

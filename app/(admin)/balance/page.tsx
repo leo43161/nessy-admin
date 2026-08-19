@@ -175,7 +175,7 @@ export default function BalancePage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[42rem] text-sm">
+                  <table className="w-full min-w-2xl text-sm">
                     <thead>
                       <tr className="border-b-[1.5px] border-border text-left text-xs font-bold tracking-wider text-muted-foreground uppercase">
                         <th className="py-2 pr-3">Fecha</th>

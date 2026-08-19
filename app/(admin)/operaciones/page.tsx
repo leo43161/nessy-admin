@@ -34,7 +34,7 @@ export default function OperacionesPage() {
       {cargando ? (
         <div className="flex gap-3 overflow-hidden px-4 pb-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-96 w-[265px] shrink-0 rounded-2xl sm:w-[300px]" />
+            <Skeleton key={i} className="h-96 w-66.25 shrink-0 rounded-2xl sm:w-75" />
           ))}
         </div>
       ) : error ? (
