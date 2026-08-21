@@ -277,20 +277,12 @@ function PlanForm({
               </Button>
             )}
           </div>
-          <select
-            id="cliente"
-            value={form.idCliente}
-            onChange={(e) => set("idCliente", e.target.value)}
-            disabled={!esAlta || clienteFijo != null}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:opacity-50"
-          >
-            <option value="">Elegir cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombreCompleto} · DNI {c.dni}
-              </option>
-            ))}
-          </select>
+          <BuscadorCliente
+            clientes={clientes}
+            valor={form.idCliente}
+            onElegir={(id) => set("idCliente", id)}
+            fijo={!esAlta || clienteFijo != null}
+          />
           {cliente && esAlta && (
             <Button
               type="button"
@@ -550,6 +542,136 @@ function PlanForm({
 }
 
 /** Fechas cargadas una por una, para los planes que no siguen ningún período */
+/**
+ * Elegir el cliente escribiendo, en vez de scrollear el padrón entero.
+ *
+ * Era un `<select>` con una opción por cliente. Con la cartera creciendo, para
+ * dar de alta una financiación había que bajar por una lista de cientos de
+ * nombres ordenados por id —o sea, sin ningún orden útil— hasta encontrar el
+ * que se buscaba.
+ *
+ * Con un cliente ya elegido la lista desaparece y queda solo él: el caso
+ * normal es elegir uno y seguir llenando el formulario, no volver a mirar el
+ * padrón. En la edición y cuando el plan se crea desde la ficha de un cliente
+ * el campo es fijo, así que ni siquiera se dibuja el buscador.
+ */
+function BuscadorCliente({
+  clientes,
+  valor,
+  onElegir,
+  /** El plan ya tiene cliente y no se puede cambiar: edición o alta desde su ficha */
+  fijo,
+}: {
+  clientes: { id: number; nombreCompleto: string; dni: string }[];
+  valor: string;
+  onElegir: (id: string) => void;
+  fijo: boolean;
+}) {
+  const [busqueda, setBusqueda] = useState("");
+  const elegido = clientes.find((c) => String(c.id) === valor);
+
+  if (elegido || fijo) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-input px-3.5 py-2">
+        <div className="min-w-0">
+          <div className="truncate font-medium">
+            {/* Con el campo fijo el cliente puede no estar todavía en el store:
+                la lista se pide al abrir el diálogo. */}
+            {elegido?.nombreCompleto ?? "Cliente del plan"}
+          </div>
+          {elegido && <div className="text-xs text-muted-foreground">DNI {elegido.dni}</div>}
+        </div>
+        {!fijo && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => {
+              onElegir("");
+              setBusqueda("");
+            }}
+          >
+            Cambiar
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  const encontrados = filtrarClientes(clientes, busqueda);
+  const visibles = encontrados.slice(0, TOPE_LISTA);
+
+  return (
+    <>
+      <Input
+        id="cliente"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Buscar por nombre o DNI…"
+        autoComplete="off"
+      />
+
+      <div className="max-h-56 overflow-y-auto rounded-lg border border-input">
+        {visibles.length === 0 ? (
+          <p className="px-3.5 py-3 text-sm text-muted-foreground">
+            Ningún cliente coincide con «{busqueda}».
+          </p>
+        ) : (
+          visibles.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onElegir(String(c.id))}
+              className="flex w-full flex-col items-start gap-0.5 border-b border-border px-3.5 py-2 text-left last:border-b-0 hover:bg-accent"
+            >
+              <span className="font-medium">{c.nombreCompleto}</span>
+              <span className="text-xs text-muted-foreground">DNI {c.dni}</span>
+            </button>
+          ))
+        )}
+      </div>
+
+      {encontrados.length > visibles.length && (
+        <p className="text-xs text-muted-foreground">
+          {encontrados.length - visibles.length} más. Escribí para achicar la lista.
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Cuántos se dibujan de una. El resto aparece al escribir. */
+const TOPE_LISTA = 50;
+
+/**
+ * Sin acentos y sin mayúsculas, y por palabras sueltas.
+ *
+ * Lo primero porque los nombres están cargados como vinieron —"Pérez" y
+ * "Perez" conviven en la base— y nadie va a tipear la tilde para buscar. Lo
+ * segundo porque el orden no coincide: el padrón dice "Gonzalez Eduardo José"
+ * y el admin escribe "eduardo gonzalez". Cada palabra tiene que aparecer en
+ * algún lado, no todas juntas y en ese orden.
+ */
+function filtrarClientes<T extends { nombreCompleto: string; dni: string }>(
+  clientes: T[],
+  busqueda: string,
+): T[] {
+  const terminos = normalizar(busqueda).split(/\s+/).filter(Boolean);
+  if (terminos.length === 0) return clientes;
+
+  return clientes.filter((c) => {
+    const texto = normalizar(`${c.nombreCompleto} ${c.dni}`);
+    return terminos.every((t) => texto.includes(t));
+  });
+}
+
+function normalizar(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
 function FechasManuales({
   fechas,
   onChange,

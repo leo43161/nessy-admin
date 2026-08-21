@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fmtMoney, todayISO } from "@/lib/format";
+import { duracionEnPalabras } from "@/lib/cuotas";
 import { calcularPrevia } from "@/lib/reestructura";
 import {
   getDeudaPendiente,
@@ -81,6 +82,30 @@ const COPY: Record<Escenario, Copy> = {
   },
 };
 
+/**
+ * Cada cuánto vence una cuota, ya nombrado.
+ *
+ * Antes esto era un campo numérico libre —"cada cuántos días vence una
+ * cuota"— con una ayuda debajo que decía "7 es semanal, 15 quincenal, 30
+ * mensual". O sea: la traducción existía, pero la tenía que hacer el admin de
+ * memoria, en cada refinanciación. Acá la hace la lista, y el número en días
+ * queda a la vista para el que quiera verlo.
+ *
+ * ⚠️ **Mensual son 30 días corridos**, no "el mismo día de cada mes" como en
+ * el alta de una financiación. Los tres SP reciben `frecuencia_dias`, que es
+ * un paso fijo en días: no hay forma de pedirles "todos los 10". Por eso el
+ * label lo dice en vez de dejarlo sobreentendido.
+ */
+const FRECUENCIAS: { dias: number; label: string; enPalabras: string }[] = [
+  { dias: 7, label: "Semanal — cada 7 días", enPalabras: "todas las semanas" },
+  { dias: 15, label: "Quincenal — cada 15 días", enPalabras: "cada 15 días" },
+  { dias: 30, label: "Mensual — cada 30 días", enPalabras: "cada 30 días" },
+  { dias: 1, label: "Diaria — todos los días", enPalabras: "todos los días" },
+];
+
+/** El valor del select cuando el admin quiere un paso que no está en la lista */
+const OTRA = "otro";
+
 export function ReestructuraDialog({
   plan,
   escenario,
@@ -105,7 +130,9 @@ export function ReestructuraDialog({
   const [capitalNuevo, setCapitalNuevo] = useState("");
   const [interesNuevo, setInteresNuevo] = useState("");
   const [montoCuota, setMontoCuota] = useState("");
+  /** Días entre cuota y cuota, o `OTRA` si se escriben a mano abajo */
   const [frecuencia, setFrecuencia] = useState("7");
+  const [diasAMano, setDiasAMano] = useState("");
   const [fechaInicio, setFechaInicio] = useState(todayISO());
   const [mensaje, setMensaje] = useState("");
 
@@ -123,6 +150,7 @@ export function ReestructuraDialog({
     setInteresNuevo("");
     setMontoCuota("");
     setFrecuencia("7");
+    setDiasAMano("");
     setFechaInicio(todayISO());
     setMensaje("");
 
@@ -149,8 +177,13 @@ export function ReestructuraDialog({
 
   const deudaVieja = deuda?.deuda ?? 0;
   const cuota = num(montoCuota);
-  const dias = num(frecuencia);
+  const dias = frecuencia === OTRA ? num(diasAMano) : Number(frecuencia);
   const capital = num(capitalNuevo);
+
+  /** "todas las semanas" — para que la previa no hable en días sueltos */
+  const cadaCuanto =
+    FRECUENCIAS.find((f) => f.dias === dias)?.enPalabras ??
+    `cada ${dias} ${dias === 1 ? "día" : "días"}`;
 
   // El reparto lo calcula `lib/reestructura.ts`, que replica el de los tres SP
   // y tiene su chequeo (`npm run check`). Acá no se hace ninguna cuenta: si la
@@ -322,14 +355,36 @@ export function ReestructuraDialog({
                 placeholder="15000"
               />
 
-              <Campo
-                id="frecuencia"
-                label="Cada cuántos días vence una cuota"
-                ayuda="7 es semanal, 15 quincenal, 30 mensual"
-                valor={frecuencia}
-                onChange={setFrecuencia}
-                placeholder="7"
-              />
+              {/* La lista dice el nombre Y los días: el que ya piensa en
+                  "cada 15" lo sigue encontrando, y el que piensa en
+                  "quincenal" no tiene que traducirlo. */}
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="frecuencia">Cada cuánto vence una cuota</Label>
+                <select
+                  id="frecuencia"
+                  value={frecuencia}
+                  onChange={(e) => setFrecuencia(e.target.value)}
+                  disabled={guardando}
+                  className="h-11 w-full rounded-lg border border-input bg-transparent px-3.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
+                >
+                  {FRECUENCIAS.map((f) => (
+                    <option key={f.dias} value={f.dias}>
+                      {f.label}
+                    </option>
+                  ))}
+                  <option value={OTRA}>Otra — la escribo en días</option>
+                </select>
+              </div>
+
+              {frecuencia === OTRA && (
+                <Campo
+                  id="dias-a-mano"
+                  label="Cada cuántos días"
+                  valor={diasAMano}
+                  onChange={setDiasAMano}
+                  placeholder="10"
+                />
+              )}
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mensaje">Nota para el historial (opcional)</Label>
@@ -370,8 +425,8 @@ export function ReestructuraDialog({
                   <p className="mt-1 text-sm">
                     <strong className="tabular-nums">{previa.cantidadCuotas}</strong>{" "}
                     {previa.cantidadCuotas === 1 ? "cuota" : "cuotas"} de{" "}
-                    <strong className="tabular-nums">{fmtMoney(cuota)}</strong>, cada {dias}{" "}
-                    {dias === 1 ? "día" : "días"} · {previa.diasTotales} días en total
+                    <strong className="tabular-nums">{fmtMoney(cuota)}</strong>, {cadaCuanto} ·{" "}
+                    {duracionEnPalabras(previa.diasTotales)} en total
                   </p>
                   {escenario === "renovar" && (
                     <p className="mt-1 text-xs text-muted-foreground">
