@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Trash2, UserPlus, Users } from "lucide-react";
+import { Loader2, Trash2, TriangleAlert, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -22,11 +22,31 @@ import { fmtMoney, formatFecha, todayISO } from "@/lib/format";
 import {
   calcularResumen,
   cuotasNecesarias,
+  diasEntre,
   duracionEnPalabras,
   montoPorCuota,
   totalConInteres,
   type Periodo,
 } from "@/lib/cuotas";
+import {
+  aRepartirAlEditar,
+  partirPorEstado,
+  resolverPar,
+  seDanDeBaja,
+  sobreviven,
+  PAR_VACIO,
+  type ParCuota,
+} from "@/lib/cronograma";
+import {
+  CamposCuota,
+  CamposFrecuencia,
+  FRECUENCIAS,
+  OTRA,
+  PreviaCronograma,
+  diasDeFrecuencia,
+} from "@/components/gestion/cronograma";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCuotasDelPlan, reprogramarCuotas, type CuotaDelPlan } from "@/services/planes.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { guardarPlan } from "@/store/slices/planes.slice";
 import { fetchClientes } from "@/store/slices/clientes.slice";
@@ -65,6 +85,14 @@ interface FormState {
    * manda y el otro se calcula.
    */
   manda: "monto" | "cantidad";
+  /* ── solo edición: el cronograma pendiente que se va a rehacer ── */
+  /** Monto por cuota ↔ cantidad, sincronizados */
+  parEdicion: ParCuota;
+  /** Días entre cuota y cuota, o `OTRA` */
+  frecuencia: string;
+  diasAMano: string;
+  /** Primer vencimiento de las cuotas nuevas */
+  desdeEdicion: string;
 }
 
 const vacio = (): FormState => ({
@@ -80,14 +108,28 @@ const vacio = (): FormState => ({
   montoCuota: "",
   fechasManuales: [],
   manda: "cantidad",
+  parEdicion: PAR_VACIO,
+  frecuencia: "7",
+  diasAMano: "",
+  desdeEdicion: todayISO(),
 });
 
 /**
  * Alta y edición de financiación.
  *
- * En el alta se arma además el cronograma; en la edición no, porque las cuotas
- * ya existen y varias pueden estar cobradas. Cambiar el cronograma de un plan
- * en curso es otra operación (refinanciar), no esta.
+ * Las dos arman el cronograma, pero no del mismo modo. En el alta se crea
+ * entero. En la edición **solo se rehacen las cuotas pendientes**: las pagadas
+ * son historia y las atrasadas conservan su fecha original, que es de donde
+ * sale el cálculo de la mora.
+ *
+ * ⚠️ Antes la edición cambiaba `Monto_total` y no tocaba ninguna cuota, así
+ * que el plan quedaba diciendo que el cliente debía una cosa mientras las
+ * cuotas sumaban otra — y el saldo del estado de cuenta, que se calcula
+ * sumando cuotas, contradecía al encabezado. Ahora el total y el cronograma se
+ * mueven juntos.
+ *
+ * Para rehacer el plan entero —incluidas las atrasadas, y con penalización—
+ * están refinanciar, renovar y reestructurar.
  */
 export function PlanFormDialog({
   plan,
@@ -132,6 +174,38 @@ function inicial(plan: PlanListado | null, clienteFijo?: number): FormState {
   };
 }
 
+/**
+ * Con qué arrancan los campos del cronograma al abrir una edición: **con el
+ * ritmo que el plan ya tiene**.
+ *
+ * Importa que sea exacto. Si los campos arrancaran en un valor cualquiera,
+ * abrir el diálogo para corregir una letra del nombre y guardar le movería
+ * todas las fechas al cliente. Arrancando con lo que ya está, el cronograma
+ * calculado sale idéntico al vigente y `handleSubmit` no manda nada.
+ *
+ * La frecuencia se deduce de la distancia entre las dos primeras pendientes:
+ * es el único lugar donde queda registrada, porque la base guarda fechas
+ * sueltas y no el período que las generó.
+ */
+function defectosDeCronograma(cuotas: CuotaDelPlan[]): Partial<FormState> {
+  const pendientes = cuotas
+    .filter((c) => c.estado === "Pendiente")
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  if (pendientes.length === 0) return {};
+
+  const paso =
+    pendientes.length >= 2 ? diasEntre(pendientes[0].fecha, pendientes[1].fecha) : 7;
+  const conocida = FRECUENCIAS.some((f) => f.dias === paso);
+
+  return {
+    parEdicion: { monto: String(pendientes[0].monto), cantidad: "", manda: "monto" },
+    frecuencia: conocida ? String(paso) : OTRA,
+    diasAMano: conocida ? "" : String(paso),
+    desdeEdicion: pendientes[0].fecha,
+  };
+}
+
 function PlanForm({
   plan,
   clienteFijo,
@@ -145,6 +219,8 @@ function PlanForm({
   const clientes = useAppSelector((s) => s.clientes.items);
   const clientesStatus = useAppSelector((s) => s.clientes.status);
   const [form, setForm] = useState<FormState>(() => inicial(plan, clienteFijo));
+  const [cuotas, setCuotas] = useState<CuotaDelPlan[]>([]);
+  const [cargandoCuotas, setCargandoCuotas] = useState(plan !== null);
   const [guardando, setGuardando] = useState(false);
   const [altaClienteAbierta, setAltaClienteAbierta] = useState(false);
   const [referentesDe, setReferentesDe] = useState<number | null>(null);
@@ -156,6 +232,28 @@ function PlanForm({
       dispatch(fetchClientes({ cobradorId: null, localidadId: null }));
     }
   }, [clientesStatus, dispatch]);
+
+  // Al editar hace falta el cronograma real: para mostrarlo, para saber cuánto
+  // ya está cobrado o atrasado —que no se puede reprogramar— y para arrancar
+  // los campos con el ritmo que el plan ya tenía, así abrir el diálogo y
+  // guardar sin tocar nada no le mueve las fechas a nadie.
+  useEffect(() => {
+    if (esAlta || !plan) return;
+    let activo = true;
+
+    getCuotasDelPlan(plan.id)
+      .then((cs) => {
+        if (!activo) return;
+        setCuotas(cs);
+        setForm((f) => ({ ...f, ...defectosDeCronograma(cs) }));
+      })
+      .catch(() => activo && toast.error("No se pudo leer el cronograma del plan."))
+      .finally(() => activo && setCargandoCuotas(false));
+
+    return () => {
+      activo = false;
+    };
+  }, [esAlta, plan]);
 
   const set = <K extends keyof FormState>(campo: K, valor: FormState[K]) =>
     setForm((f) => ({ ...f, [campo]: valor }));
@@ -188,8 +286,63 @@ function PlanForm({
   const cuotaMostrada =
     form.manda === "monto" ? form.montoCuota : String(montoPorCuota(total, cantidad) || "");
 
+  /* ── Edición: el cronograma pendiente que se va a rehacer ──
+   *
+   * `total` es del plan entero, pero lo cobrado ya entró y lo atrasado no se
+   * puede reprogramar. Las cuotas nuevas cubren lo que falta, que es lo que
+   * calcula `aRepartirAlEditar`. Si da cero o negativo el plan no admite
+   * cronograma: el cliente ya pagó, o debe en cuotas intocables, más que el
+   * total al que se lo quiere llevar.
+   */
+  const corte = partirPorEstado(cuotas);
+  const aRepartirEd = esAlta ? 0 : aRepartirAlEditar(total, corte);
+  const diasEd = diasDeFrecuencia(form.frecuencia, form.diasAMano);
+  // `false`: editar pasa por PUT /cuotas, donde el panel manda cada monto, así
+  // que reparte parejo en vez de usar el FLOOR de los SP.
+  const { montoCuota: cuotaEd, cantidad: cantidadEd } = resolverPar(
+    aRepartirEd,
+    form.parEdicion,
+    false,
+  );
+  const resumenEd =
+    esAlta || aRepartirEd <= 0 || cantidadEd <= 0 || diasEd < 1
+      ? null
+      : calcularResumen(aRepartirEd, 0, cantidadEd, {
+          periodo: "Manual",
+          cada: diasEd,
+          primeraFecha: form.desdeEdicion,
+        });
+  const nuevasEd = resumenEd?.cuotas ?? [];
+
+  /**
+   * Si el cronograma calculado es idéntico al que ya está, no se manda nada.
+   *
+   * Es lo que hace que entrar a corregir el nombre de un plan y guardar no le
+   * reescriba las fechas al cliente: `PUT /cuotas` da de baja todas las
+   * pendientes y carga las nuevas, así que mandarlo de más no es inocuo.
+   */
+  const cronogramaCambio =
+    !esAlta &&
+    nuevasEd.length > 0 &&
+    (nuevasEd.length !== corte.pendientes.length ||
+      nuevasEd.some(
+        (c, i) =>
+          c.fecha !== corte.pendientes[i]?.fecha || c.monto !== corte.pendientes[i]?.monto,
+      ));
+
+  // Al editar hay un caso que no se puede resolver solo: bajar el total por
+  // debajo de lo ya cobrado más lo atrasado. No hay cronograma posible —
+  // habría que devolver plata o dar de baja una cuota atrasada—, así que el
+  // diálogo frena en vez de mandar algo inventado.
+  const totalImposible = !esAlta && !cargandoCuotas && total > 0 && aRepartirEd < 0;
+
   const completo =
-    form.idCliente !== "" && form.nombre.trim() !== "" && total > 0 && (!esAlta || cantidad > 0);
+    form.idCliente !== "" &&
+    form.nombre.trim() !== "" &&
+    total > 0 &&
+    (!esAlta || cantidad > 0) &&
+    !totalImposible &&
+    (esAlta || !cargandoCuotas);
 
   const cliente = clientes.find((c) => c.id === Number(form.idCliente));
 
@@ -212,6 +365,25 @@ function PlanForm({
     e.preventDefault();
     if (!completo || guardando) return;
     setGuardando(true);
+
+    // Las cuotas ANTES que el plan, a propósito.
+    //
+    // Son dos llamadas —`PUT /cuotas` y `PUT /planes`— y no hay forma de
+    // hacerlas atómicas desde acá. Si falla la segunda, el cronograma queda
+    // con el total nuevo y el encabezado con el viejo: el saldo del estado de
+    // cuenta se calcula sumando cuotas, así que lo que el cobrador va a salir
+    // a cobrar queda bien y lo único desactualizado es un número de pantalla.
+    // Al revés —plan primero— el cliente terminaría debiendo un total que sus
+    // cuotas no cubren.
+    if (cronogramaCambio && plan) {
+      try {
+        await reprogramarCuotas(plan.id, nuevasEd);
+      } catch {
+        setGuardando(false);
+        toast.error("No se pudo rehacer el cronograma. No se cambió nada.");
+        return;
+      }
+    }
 
     const res = await dispatch(
       guardarPlan({
@@ -240,11 +412,23 @@ function PlanForm({
             "Cargalo a mano desde Balance → Capital entregado: " + fmtMoney(capital) + ".",
           duration: 12000,
         });
+      } else if (cronogramaCambio) {
+        toast.success(
+          `Financiación actualizada: ${nuevasEd.length} ${nuevasEd.length === 1 ? "cuota" : "cuotas"} nuevas por ${fmtMoney(aRepartirEd)}.`,
+        );
       } else {
         toast.success(esAlta ? "Financiación creada" : "Financiación actualizada");
       }
       onCerrar();
     } else {
+      // El plan no se guardó. Si el cronograma ya se había rehecho, las cuotas
+      // pendientes quedaron con el total nuevo y el encabezado con el viejo.
+      if (cronogramaCambio) {
+        toast.warning("Se rehicieron las cuotas pero no se pudo guardar el total del plan.", {
+          description: "Volvé a entrar y guardá de nuevo para que los dos números coincidan.",
+          duration: 12000,
+        });
+      }
       toast.error(res.payload ?? "No se pudo guardar.");
     }
   }
@@ -256,7 +440,7 @@ function PlanForm({
         <DialogDescription>
           {esAlta
             ? "El alta crea el plan y su cronograma de cuotas."
-            : "Las cuotas ya existen y no se tocan desde acá."}
+            : "Cambiar el total rehace las cuotas pendientes. Las pagadas y las atrasadas no se tocan."}
         </DialogDescription>
       </DialogHeader>
 
@@ -313,7 +497,13 @@ function PlanForm({
         {/* ── Plata ── */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="monto-total">Plata en mano *</Label>
+            {/* En el alta este campo es el CAPITAL —lo que sale de la caja— y
+                el interés se suma aparte. En la edición no puede serlo: la
+                base guarda un solo número, `Monto_total`, que ya viene con el
+                interés adentro, y es ese el que se carga acá. Llamarlo "plata
+                en mano" en los dos casos invitaba a "corregirlo" al capital
+                real y bajarle la deuda al cliente sin querer. */}
+            <Label htmlFor="monto-total">{esAlta ? "Plata en mano *" : "Total a pagar *"}</Label>
             <Input
               id="monto-total"
               type="number"
@@ -328,7 +518,9 @@ function PlanForm({
                 balance andando esa confusión cuesta plata: si acá se tipea el
                 monto con interés, el fondo de reinversión se descuenta de más. */}
             <p className="text-xs text-muted-foreground">
-              Lo que se le entrega al cliente, sin el interés
+              {esAlta
+                ? "Lo que se le entrega al cliente, sin el interés"
+                : "Lo que el cliente debe en total, con el interés ya adentro"}
             </p>
           </div>
           <div className="space-y-1.5">
@@ -488,6 +680,96 @@ function PlanForm({
             )}
           </>
         )}
+
+        {/* ── Edición: el cronograma ── */}
+        {!esAlta &&
+          (cargandoCuotas ? (
+            <Skeleton className="h-20 rounded-xl" />
+          ) : (
+            <>
+              <div className="rounded-xl border-[1.5px] border-border bg-card p-3 text-xs">
+                <div className="font-bold tracking-wider text-muted-foreground uppercase">
+                  El cronograma hoy
+                </div>
+                <Linea
+                  label="Cobrado"
+                  valor={`${fmtMoney(corte.cobrado)} · ${corte.pagadas.length} ${corte.pagadas.length === 1 ? "cuota" : "cuotas"}`}
+                />
+                {corte.atrasadas.length > 0 && (
+                  <Linea
+                    label="Atrasado (no se toca)"
+                    valor={`${fmtMoney(corte.atrasado)} · ${corte.atrasadas.length} ${corte.atrasadas.length === 1 ? "cuota" : "cuotas"}`}
+                  />
+                )}
+                <Linea
+                  label="Pendiente (se rehace)"
+                  valor={`${fmtMoney(corte.pendiente)} · ${corte.pendientes.length} ${corte.pendientes.length === 1 ? "cuota" : "cuotas"}`}
+                />
+              </div>
+
+              {totalImposible ? (
+                <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Entre lo cobrado y lo atrasado ya hay {fmtMoney(corte.cobrado + corte.atrasado)},
+                    más que el total que estás poniendo. No hay cronograma posible: subí el total, o
+                    resolvé las cuotas atrasadas desde <strong>Refinanciar</strong>.
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <CamposCuota
+                    par={form.parEdicion}
+                    onCambio={(p) => set("parEdicion", p)}
+                    montoCuota={cuotaEd}
+                    cantidad={cantidadEd}
+                    deshabilitado={guardando}
+                    ayuda={
+                      aRepartirEd > 0
+                        ? `Quedan ${fmtMoney(aRepartirEd)} para repartir en cuotas nuevas. Escribí cualquiera de los dos: el otro se calcula solo.`
+                        : "Poné el total de arriba para poder repartir."
+                    }
+                  />
+
+                  <CamposFrecuencia
+                    frecuencia={form.frecuencia}
+                    onFrecuencia={(v) => set("frecuencia", v)}
+                    aMano={form.diasAMano}
+                    onAMano={(v) => set("diasAMano", v)}
+                    deshabilitado={guardando}
+                  />
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="desde-edicion">Primera cuota nueva</Label>
+                    <Input
+                      id="desde-edicion"
+                      type="date"
+                      value={form.desdeEdicion}
+                      onChange={(e) => set("desdeEdicion", e.target.value)}
+                      disabled={guardando}
+                    />
+                  </div>
+
+                  {nuevasEd.length > 0 && (
+                    <PreviaCronograma
+                      operacion="editar"
+                      sobreviven={cronogramaCambio ? sobreviven("editar", corte) : cuotas}
+                      seDanDeBaja={cronogramaCambio ? seDanDeBaja("editar", corte) : []}
+                      nuevas={cronogramaCambio ? nuevasEd : []}
+                      totalAntes={plan?.montoTotal ?? 0}
+                      totalDespues={total}
+                    />
+                  )}
+
+                  {!cronogramaCambio && nuevasEd.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      El cronograma queda igual que ahora, así que las cuotas no se van a tocar.
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          ))}
 
         <div className="space-y-1.5">
           <Label htmlFor="status-plan">Estado</Label>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, TriangleAlert } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,13 +19,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fmtMoney, todayISO } from "@/lib/format";
 import { duracionEnPalabras } from "@/lib/cuotas";
-import { calcularPrevia } from "@/lib/reestructura";
+import { calcularPrevia, totalAGenerar } from "@/lib/reestructura";
 import {
+  cuotasSegunSP,
+  partirPorEstado,
+  primeraFechaNueva,
+  resolverPar,
+  seDanDeBaja,
+  sobreviven,
+  PAR_VACIO,
+  type ParCuota,
+} from "@/lib/cronograma";
+import {
+  CamposCuota,
+  CamposFrecuencia,
+  PreviaCronograma,
+  SelectorPlan,
+  diasDeFrecuencia,
+  frecuenciaEnPalabras,
+} from "@/components/gestion/cronograma";
+import { useAppSelector } from "@/store/hooks";
+import {
+  getCuotasDelPlan,
   getDeudaPendiente,
   refinanciarPlan,
   renovarPlan,
   reestructurarCuotas,
   type CorteDeDeuda,
+  type CuotaDelPlan,
 } from "@/services/planes.service";
 import type { PlanListado } from "@/types";
 
@@ -82,30 +103,6 @@ const COPY: Record<Escenario, Copy> = {
   },
 };
 
-/**
- * Cada cuánto vence una cuota, ya nombrado.
- *
- * Antes esto era un campo numérico libre —"cada cuántos días vence una
- * cuota"— con una ayuda debajo que decía "7 es semanal, 15 quincenal, 30
- * mensual". O sea: la traducción existía, pero la tenía que hacer el admin de
- * memoria, en cada refinanciación. Acá la hace la lista, y el número en días
- * queda a la vista para el que quiera verlo.
- *
- * ⚠️ **Mensual son 30 días corridos**, no "el mismo día de cada mes" como en
- * el alta de una financiación. Los tres SP reciben `frecuencia_dias`, que es
- * un paso fijo en días: no hay forma de pedirles "todos los 10". Por eso el
- * label lo dice en vez de dejarlo sobreentendido.
- */
-const FRECUENCIAS: { dias: number; label: string; enPalabras: string }[] = [
-  { dias: 7, label: "Semanal — cada 7 días", enPalabras: "todas las semanas" },
-  { dias: 15, label: "Quincenal — cada 15 días", enPalabras: "cada 15 días" },
-  { dias: 30, label: "Mensual — cada 30 días", enPalabras: "cada 30 días" },
-  { dias: 1, label: "Diaria — todos los días", enPalabras: "todos los días" },
-];
-
-/** El valor del select cuando el admin quiere un paso que no está en la lista */
-const OTRA = "otro";
-
 export function ReestructuraDialog({
   plan,
   escenario,
@@ -122,14 +119,38 @@ export function ReestructuraDialog({
 }) {
   const copy = COPY[escenario];
 
+  // Todas las financiaciones del mismo cliente: un cliente puede tener varias
+  // abiertas y desde el listado no siempre se entra por la que se quería.
+  const todosLosPlanes = useAppSelector((s) => s.planes.items);
+  const delCliente = plan
+    ? todosLosPlanes.filter((p) => p.clienteId === plan.clienteId && p.status === "Activo")
+    : [];
+
+  /** Sobre cuál se aplica. Arranca en la que abrió el diálogo. */
+  const [planId, setPlanId] = useState<number>(plan?.id ?? 0);
+  const elegido = todosLosPlanes.find((p) => p.id === planId) ?? plan;
+
+  // El diálogo se monta una vez y se reusa, así que al abrirlo sobre otra fila
+  // hay que volver a apuntar al plan que la abrió o se quedaría en el anterior.
+  //
+  // Se ajusta durante el render y no en un `useEffect`: es el patrón que React
+  // documenta para un estado que depende de una prop. Con el efecto, el
+  // diálogo alcanzaba a pintar una vez con el plan viejo antes de corregirse.
+  const [abiertoPara, setAbiertoPara] = useState<number>(plan?.id ?? 0);
+  if (plan && plan.id !== abiertoPara) {
+    setAbiertoPara(plan.id);
+    setPlanId(plan.id);
+  }
+
   const [deuda, setDeuda] = useState<CorteDeDeuda | null>(null);
+  const [cuotas, setCuotas] = useState<CuotaDelPlan[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
   const [interes, setInteres] = useState("");
   const [capitalNuevo, setCapitalNuevo] = useState("");
   const [interesNuevo, setInteresNuevo] = useState("");
-  const [montoCuota, setMontoCuota] = useState("");
+  const [par, setPar] = useState<ParCuota>(PAR_VACIO);
   /** Días entre cuota y cuota, o `OTRA` si se escriben a mano abajo */
   const [frecuencia, setFrecuencia] = useState("7");
   const [diasAMano, setDiasAMano] = useState("");
@@ -139,32 +160,42 @@ export function ReestructuraDialog({
   // La deuda se lee de la API en vez de estimarla con `montoTotal − pagado`:
   // es el mismo conjunto de cuotas que el SP va a dar de baja, y de ahí sale
   // todo lo que se muestra abajo.
+  //
+  // Las cuotas se piden además de la deuda porque la previa las necesita una
+  // por una: para dibujar el cronograma, y sobre todo para saber DÓNDE arranca
+  // el nuevo — renovar cuelga de la última fecha agendada y reestructurar de la
+  // impaga más vieja. Sin eso habría que inventar la primera fecha.
   useEffect(() => {
-    if (!open || !plan) return;
+    if (!open || !planId) return;
     let activo = true;
 
     setCargando(true);
     setDeuda(null);
+    setCuotas([]);
     setInteres("");
     setCapitalNuevo("");
     setInteresNuevo("");
-    setMontoCuota("");
+    setPar(PAR_VACIO);
     setFrecuencia("7");
     setDiasAMano("");
     setFechaInicio(todayISO());
     setMensaje("");
 
-    getDeudaPendiente(plan.id)
-      .then((d) => activo && setDeuda(d))
-      .catch(() => activo && toast.error("No se pudo leer la deuda del plan."))
+    Promise.all([getDeudaPendiente(planId), getCuotasDelPlan(planId)])
+      .then(([d, cs]) => {
+        if (!activo) return;
+        setDeuda(d);
+        setCuotas(cs);
+      })
+      .catch(() => activo && toast.error("No se pudo leer la financiación."))
       .finally(() => activo && setCargando(false));
 
     return () => {
       activo = false;
     };
-  }, [open, plan]);
+  }, [open, planId]);
 
-  if (!plan) return null;
+  if (!plan || !elegido) return null;
 
   const num = (s: string) => {
     const v = Number(s);
@@ -176,19 +207,29 @@ export function ReestructuraDialog({
   };
 
   const deudaVieja = deuda?.deuda ?? 0;
-  const cuota = num(montoCuota);
-  const dias = frecuencia === OTRA ? num(diasAMano) : Number(frecuencia);
+  const dias = diasDeFrecuencia(frecuencia, diasAMano);
   const capital = num(capitalNuevo);
 
-  /** "todas las semanas" — para que la previa no hable en días sueltos */
-  const cadaCuanto =
-    FRECUENCIAS.find((f) => f.dias === dias)?.enPalabras ??
-    `cada ${dias} ${dias === 1 ? "día" : "días"}`;
+  const cadaCuanto = frecuenciaEnPalabras(dias);
 
-  // El reparto lo calcula `lib/reestructura.ts`, que replica el de los tres SP
-  // y tiene su chequeo (`npm run check`). Acá no se hace ninguna cuenta: si la
-  // previa y el SP se separan, el admin confirma un cronograma que no es el
-  // que va a quedar.
+  // Cuánta plata se va a repartir. Sale de `lib/reestructura.ts`, que replica
+  // el cálculo de los tres SP: la deuda vieja con penalización, la plata nueva
+  // con su interés, o la misma deuda sin tocar, según el escenario.
+  const aRepartir = totalAGenerar({
+    escenario,
+    deudaVieja,
+    interes: pct(interes),
+    capitalNuevo: capital,
+    interesNuevo: pct(interesNuevo),
+    montoCuota: 0,
+    frecuenciaDias: dias,
+  });
+
+  // Monto por cuota y cantidad son la misma información vista de dos lados: se
+  // escribe cualquiera y el otro sale de acá. `true` porque estas tres pasan
+  // por un SP, que hace FLOOR y agrega una última cuota por el resto.
+  const { montoCuota: cuota, cantidad } = resolverPar(aRepartir, par, true);
+
   const previa = calcularPrevia({
     escenario,
     deudaVieja,
@@ -198,6 +239,14 @@ export function ReestructuraDialog({
     montoCuota: cuota,
     frecuenciaDias: dias,
   });
+
+  // El cronograma que se va a escribir, cuota por cuota. La primera fecha la
+  // decide el SP —refinanciar la recibe, renovar la cuelga del final del
+  // cronograma y reestructurar de la impaga más vieja—, así que sale de
+  // `lib/cronograma.ts` y no de acá.
+  const corte = partirPorEstado(cuotas);
+  const arranca = primeraFechaNueva(escenario, cuotas, dias, fechaInicio, todayISO());
+  const nuevas = arranca === null ? [] : cuotasSegunSP(aRepartir, cuota, arranca, dias);
 
   const faltaAlgo =
     cuota <= 0 ||
@@ -209,14 +258,26 @@ export function ReestructuraDialog({
   // cuotas que reemplazar. Renovar sí, porque agrega al final.
   const sinDeuda = deuda !== null && deudaVieja <= 0 && escenario !== "renovar";
 
+  // Renovar acopla en MAX(fecha_acordada) + frecuencia. Sobre un plan sin
+  // ninguna cuota esa fecha es NULL y el SP crearía cuotas sin vencimiento: la
+  // API lo corta con un 409, así que acá se avisa antes de dejar confirmar.
+  const sinDondeAcoplar =
+    escenario === "renovar" && !cargando && cuotas.length === 0;
+
   const puedeConfirmar =
-    !cargando && !guardando && !faltaAlgo && !sinDeuda && previa.totalAGenerar > 0;
+    !cargando &&
+    !guardando &&
+    !faltaAlgo &&
+    !sinDeuda &&
+    !sinDondeAcoplar &&
+    previa.totalAGenerar > 0;
 
   const confirmar = async () => {
     setGuardando(true);
     try {
       const base = {
-        planId: plan.id,
+        // El del selector, no el de la fila que abrió el diálogo.
+        planId: elegido.id,
         montoCuota: cuota,
         frecuenciaDias: dias,
         mensaje: mensaje.trim() || undefined,
@@ -256,15 +317,27 @@ export function ReestructuraDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg max-sm:h-dvh max-sm:max-h-none max-sm:max-w-full max-sm:rounded-none">
         <DialogHeader>
           <DialogTitle>{copy.titulo}</DialogTitle>
-          <DialogDescription>
-            {plan.clienteNombre} · {plan.nombre}
-          </DialogDescription>
+          <DialogDescription>{elegido.clienteNombre}</DialogDescription>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">{copy.descripcion}</p>
 
+        {/* Sobre cuál se aplica. Con una sola financiación no se dibuja. */}
+        <SelectorPlan
+          planes={delCliente}
+          valor={elegido.id}
+          onElegir={setPlanId}
+          deshabilitado={guardando}
+        />
+
         {cargando ? (
           <Skeleton className="h-20 rounded-xl" />
+        ) : sinDondeAcoplar ? (
+          <Aviso tono="alarma">
+            Esta financiación no tiene ninguna cuota cargada, así que no hay final del cronograma
+            donde acoplar la renovación. Cargale el cronograma primero, o usá{" "}
+            <strong>Refinanciar</strong>, que arranca en la fecha que le indiques.
+          </Aviso>
         ) : sinDeuda ? (
           <Aviso tono="alarma">
             Este plan no tiene cuotas pendientes ni atrasadas, así que no hay nada que{" "}
@@ -346,45 +419,29 @@ export function ReestructuraDialog({
                 </>
               )}
 
-              <Campo
-                id="monto-cuota"
-                label="Monto de cada cuota nueva"
-                ayuda="El monto decide cuántas cuotas salen"
-                valor={montoCuota}
-                onChange={setMontoCuota}
-                placeholder="15000"
+              {/* El acuerdo con el cliente se cierra de las dos maneras: "que
+                  me quede en 20.000 por semana" y "que lo termine en 10
+                  cuotas". Antes solo se podía escribir la primera. */}
+              <CamposCuota
+                par={par}
+                onCambio={setPar}
+                montoCuota={cuota}
+                cantidad={cantidad}
+                deshabilitado={guardando}
+                ayuda={
+                  aRepartir > 0
+                    ? `Se reparten ${fmtMoney(aRepartir)}. Escribí cualquiera de los dos: el otro se calcula solo.`
+                    : "Completá los montos de arriba para poder repartir."
+                }
               />
 
-              {/* La lista dice el nombre Y los días: el que ya piensa en
-                  "cada 15" lo sigue encontrando, y el que piensa en
-                  "quincenal" no tiene que traducirlo. */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="frecuencia">Cada cuánto vence una cuota</Label>
-                <select
-                  id="frecuencia"
-                  value={frecuencia}
-                  onChange={(e) => setFrecuencia(e.target.value)}
-                  disabled={guardando}
-                  className="h-11 w-full rounded-lg border border-input bg-transparent px-3.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30"
-                >
-                  {FRECUENCIAS.map((f) => (
-                    <option key={f.dias} value={f.dias}>
-                      {f.label}
-                    </option>
-                  ))}
-                  <option value={OTRA}>Otra — la escribo en días</option>
-                </select>
-              </div>
-
-              {frecuencia === OTRA && (
-                <Campo
-                  id="dias-a-mano"
-                  label="Cada cuántos días"
-                  valor={diasAMano}
-                  onChange={setDiasAMano}
-                  placeholder="10"
-                />
-              )}
+              <CamposFrecuencia
+                frecuencia={frecuencia}
+                onFrecuencia={setFrecuencia}
+                aMano={diasAMano}
+                onAMano={setDiasAMano}
+                deshabilitado={guardando}
+              />
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mensaje">Nota para el historial (opcional)</Label>
@@ -405,46 +462,39 @@ export function ReestructuraDialog({
             </div>
 
             {/* La vista previa: es lo único que separa un monto mal tipeado de
-                un cronograma reescrito. */}
-            <div className="rounded-xl border-[1.5px] border-primary bg-secondary p-3">
-              <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Cómo queda
-              </div>
-
-              {faltaAlgo ? (
+                un cronograma reescrito. Va con las fechas a la vista porque un
+                total no deja ver que la primera cuota cae en una fecha que ya
+                pasó, ni que la última se va a tres años. */}
+            {faltaAlgo ? (
+              <div className="rounded-xl border-[1.5px] border-primary bg-secondary p-3">
+                <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Cómo queda
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Completá los campos para ver el resultado.
+                  Completá los campos para ver el cronograma que va a quedar.
                 </p>
-              ) : (
-                <>
-                  <div className="mt-1 flex items-center gap-2 font-mono text-lg font-bold tabular-nums">
-                    <span className="text-muted-foreground">{fmtMoney(deudaVieja)}</span>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                    <span>{fmtMoney(previa.deudaFinal)}</span>
-                  </div>
-                  <p className="mt-1 text-sm">
-                    <strong className="tabular-nums">{previa.cantidadCuotas}</strong>{" "}
-                    {previa.cantidadCuotas === 1 ? "cuota" : "cuotas"} de{" "}
-                    <strong className="tabular-nums">{fmtMoney(cuota)}</strong>, {cadaCuanto} ·{" "}
-                    {duracionEnPalabras(previa.diasTotales)} en total
-                  </p>
-                  {escenario === "renovar" && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Se agregan al final del cronograma actual.
-                    </p>
-                  )}
+              </div>
+            ) : (
+              <>
+                <PreviaCronograma
+                  operacion={escenario}
+                  sobreviven={sobreviven(escenario, corte)}
+                  seDanDeBaja={seDanDeBaja(escenario, corte)}
+                  nuevas={nuevas}
+                  totalAntes={deudaVieja}
+                  totalDespues={previa.deudaFinal}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {previa.cantidadCuotas} {previa.cantidadCuotas === 1 ? "cuota" : "cuotas"} de{" "}
+                  {fmtMoney(cuota)}, {cadaCuanto} ·{" "}
+                  {duracionEnPalabras(previa.diasTotales)} en total.
                   {/* El reparto no siempre da exacto: los SP generan las cuotas
                       enteras y una última por el resto, más chica. */}
-                  {!previa.exacto && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      La última sale por {fmtMoney(previa.ultimaCuota)}: la división no da exacta.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <Aviso tono="aviso">{copy.efecto}</Aviso>
+                  {!previa.exacto &&
+                    ` La última sale por ${fmtMoney(previa.ultimaCuota)}: la división no da exacta.`}
+                </p>
+              </>
+            )}
           </>
         )}
 
