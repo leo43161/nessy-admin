@@ -26,6 +26,7 @@ import {
   primeraFechaNueva,
   resolverPar,
   seDanDeBaja,
+  TOPE_CUOTAS,
   sobreviven,
   PAR_VACIO,
   type ParCuota,
@@ -248,6 +249,12 @@ export function ReestructuraDialog({
   const arranca = primeraFechaNueva(escenario, cuotas, dias, fechaInicio, todayISO());
   const nuevas = arranca === null ? [] : cuotasSegunSP(aRepartir, cuota, arranca, dias);
 
+  // El monto se escribe dígito a dígito: camino a "700000" el campo pasa por
+  // "7", y ahí la cuenta da cientos de miles de cuotas. No alcanza con no
+  // dibujarlas —confirmar escribiría todas esas filas en la base—, así que
+  // también se corta el botón.
+  const demasiadas = cantidad > TOPE_CUOTAS;
+
   const faltaAlgo =
     cuota <= 0 ||
     dias < 1 ||
@@ -270,6 +277,7 @@ export function ReestructuraDialog({
     !faltaAlgo &&
     !sinDeuda &&
     !sinDondeAcoplar &&
+    !demasiadas &&
     previa.totalAGenerar > 0;
 
   const confirmar = async () => {
@@ -465,7 +473,13 @@ export function ReestructuraDialog({
                 un cronograma reescrito. Va con las fechas a la vista porque un
                 total no deja ver que la primera cuota cae en una fecha que ya
                 pasó, ni que la última se va a tres años. */}
-            {faltaAlgo ? (
+            {demasiadas ? (
+              <Aviso tono="alarma">
+                Con cuotas de {fmtMoney(cuota)} salen <strong>{cantidad.toLocaleString("es-AR")}</strong>{" "}
+                cuotas. Eso no es un cronograma, es un monto mal tipeado: subilo, o escribí
+                directamente en cuántas cuotas lo querés.
+              </Aviso>
+            ) : faltaAlgo ? (
               <div className="rounded-xl border-[1.5px] border-primary bg-secondary p-3">
                 <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                   Cómo queda

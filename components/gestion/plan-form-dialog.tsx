@@ -35,6 +35,7 @@ import {
   seDanDeBaja,
   sobreviven,
   PAR_VACIO,
+  TOPE_CUOTAS,
   type ParCuota,
 } from "@/lib/cronograma";
 import {
@@ -178,10 +179,12 @@ function inicial(plan: PlanListado | null, clienteFijo?: number): FormState {
  * Con qué arrancan los campos del cronograma al abrir una edición: **con el
  * ritmo que el plan ya tiene**.
  *
- * Importa que sea exacto. Si los campos arrancaran en un valor cualquiera,
- * abrir el diálogo para corregir una letra del nombre y guardar le movería
- * todas las fechas al cliente. Arrancando con lo que ya está, el cronograma
- * calculado sale idéntico al vigente y `handleSubmit` no manda nada.
+ * Es para que el admin vea de qué parte, no para decidir si se rehace: de eso
+ * se ocupa `cronogramaCambio`, que mira si tocó algo. Y menos mal, porque
+ * estos valores **no siempre pueden reproducir el cronograma vigente**: un
+ * plan refinanciado tiene 4 cuotas de 700.000 y una de 200.000, y el reparto
+ * parejo de la edición da 5 de 600.000. Ningún par (monto, cantidad) lo
+ * devuelve igual.
  *
  * La frecuencia se deduce de la distancia entre las dos primeras pendientes:
  * es el único lugar donde queda registrada, porque la base guarda fechas
@@ -222,6 +225,8 @@ function PlanForm({
   const [cuotas, setCuotas] = useState<CuotaDelPlan[]>([]);
   const [cargandoCuotas, setCargandoCuotas] = useState(plan !== null);
   const [guardando, setGuardando] = useState(false);
+  /** Si el admin tocó algún campo del cronograma. Ver `cronogramaCambio`. */
+  const [tocoCronograma, setTocoCronograma] = useState(false);
   const [altaClienteAbierta, setAltaClienteAbierta] = useState(false);
   const [referentesDe, setReferentesDe] = useState<number | null>(null);
 
@@ -257,6 +262,12 @@ function PlanForm({
 
   const set = <K extends keyof FormState>(campo: K, valor: FormState[K]) =>
     setForm((f) => ({ ...f, [campo]: valor }));
+
+  /** Igual que `set`, pero deja registrado que el cronograma se tocó a mano. */
+  const setCron = <K extends keyof FormState>(campo: K, valor: FormState[K]) => {
+    setTocoCronograma(true);
+    set(campo, valor);
+  };
 
   const capital = Number(form.montoTotal) || 0;
   const interes = Number(form.interes) || 0;
@@ -315,20 +326,24 @@ function PlanForm({
   const nuevasEd = resumenEd?.cuotas ?? [];
 
   /**
-   * Si el cronograma calculado es idéntico al que ya está, no se manda nada.
+   * Las cuotas se rehacen solo si el admin pidió algo: cambiar el total, o
+   * tocar alguno de los campos del cronograma.
    *
-   * Es lo que hace que entrar a corregir el nombre de un plan y guardar no le
-   * reescriba las fechas al cliente: `PUT /cuotas` da de baja todas las
-   * pendientes y carga las nuevas, así que mandarlo de más no es inocuo.
+   * La primera versión de esto comparaba el cronograma calculado contra el
+   * vigente y rehacía si diferían. Parecía más fino y estaba mal: **un plan
+   * recién refinanciado nunca coincide**. Los SP reparten `FLOOR(total/cuota)`
+   * cuotas enteras y una última más chica —4 de 700.000 y una de 200.000—,
+   * mientras que editar reparte parejo —5 de 600.000—. Abrir el diálogo para
+   * mirar y salir proponía reescribirle el cronograma al cliente.
+   *
+   * `PUT /cuotas` da de baja TODAS las pendientes y carga las nuevas, así que
+   * mandarlo de más no es inocuo: mueve fechas que el cobrador ya acordó.
    */
+  const totalCambio =
+    !esAlta && Math.round(total * 100) !== Math.round((plan?.montoTotal ?? 0) * 100);
+
   const cronogramaCambio =
-    !esAlta &&
-    nuevasEd.length > 0 &&
-    (nuevasEd.length !== corte.pendientes.length ||
-      nuevasEd.some(
-        (c, i) =>
-          c.fecha !== corte.pendientes[i]?.fecha || c.monto !== corte.pendientes[i]?.monto,
-      ));
+    !esAlta && nuevasEd.length > 0 && (totalCambio || tocoCronograma);
 
   // Al editar hay un caso que no se puede resolver solo: bajar el total por
   // debajo de lo ya cobrado más lo atrasado. No hay cronograma posible —
@@ -336,12 +351,18 @@ function PlanForm({
   // diálogo frena en vez de mandar algo inventado.
   const totalImposible = !esAlta && !cargandoCuotas && total > 0 && aRepartirEd < 0;
 
+  // Mismo caso que en los otros tres: el monto se escribe dígito a dígito y
+  // los valores intermedios dan cantidades absurdas. No se dibujan ni se dejan
+  // guardar.
+  const demasiadasEd = !esAlta && cantidadEd > TOPE_CUOTAS;
+
   const completo =
     form.idCliente !== "" &&
     form.nombre.trim() !== "" &&
     total > 0 &&
     (!esAlta || cantidad > 0) &&
     !totalImposible &&
+    !demasiadasEd &&
     (esAlta || !cargandoCuotas);
 
   const cliente = clientes.find((c) => c.id === Number(form.idCliente));
@@ -707,7 +728,17 @@ function PlanForm({
                 />
               </div>
 
-              {totalImposible ? (
+              {demasiadasEd ? (
+                <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Con cuotas de {fmtMoney(cuotaEd)} salen{" "}
+                    <strong>{cantidadEd.toLocaleString("es-AR")}</strong> cuotas. Eso no es un
+                    cronograma, es un monto mal tipeado: subilo, o escribí directamente en cuántas
+                    cuotas lo querés.
+                  </span>
+                </div>
+              ) : totalImposible ? (
                 <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
                   <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                   <span>
@@ -720,7 +751,7 @@ function PlanForm({
                 <>
                   <CamposCuota
                     par={form.parEdicion}
-                    onCambio={(p) => set("parEdicion", p)}
+                    onCambio={(p) => setCron("parEdicion", p)}
                     montoCuota={cuotaEd}
                     cantidad={cantidadEd}
                     deshabilitado={guardando}
@@ -733,9 +764,9 @@ function PlanForm({
 
                   <CamposFrecuencia
                     frecuencia={form.frecuencia}
-                    onFrecuencia={(v) => set("frecuencia", v)}
+                    onFrecuencia={(v) => setCron("frecuencia", v)}
                     aMano={form.diasAMano}
-                    onAMano={(v) => set("diasAMano", v)}
+                    onAMano={(v) => setCron("diasAMano", v)}
                     deshabilitado={guardando}
                   />
 
@@ -745,7 +776,7 @@ function PlanForm({
                       id="desde-edicion"
                       type="date"
                       value={form.desdeEdicion}
-                      onChange={(e) => set("desdeEdicion", e.target.value)}
+                      onChange={(e) => setCron("desdeEdicion", e.target.value)}
                       disabled={guardando}
                     />
                   </div>

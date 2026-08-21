@@ -160,6 +160,20 @@ export function resolverPar(
   return { montoCuota, cantidad: cantidadPara(total, montoCuota) };
 }
 
+/**
+ * El techo de cuotas que se acepta generar.
+ *
+ * No es una preferencia: es una defensa. El monto por cuota se escribe dígito
+ * a dígito, así que camino a "700000" el campo pasa por "7" — y 3.000.000 en
+ * cuotas de $7 son **428.572 cuotas**. Con la previa dibujando una fila por
+ * cuota eso congelaba la pestaña antes de terminar de tipear; confirmado, la
+ * API le escribía esas 428.572 filas a `Pagos_por_realizar`.
+ *
+ * 400 deja lugar de sobra para lo que existe de verdad —un plan diario de un
+ * año son 365— y corta cualquier cosa que solo puede ser un error de tipeo.
+ */
+export const TOPE_CUOTAS = 400;
+
 /** Cuántas cuotas de ese monto entran, con la regla del SP: enteras + resto */
 export function cantidadPara(total: number, montoCuota: number): number {
   if (total <= 0 || montoCuota <= 0) return 0;
@@ -186,6 +200,9 @@ export function cuotasSegunSP(
   frecuenciaDias: number,
 ): Cuota[] {
   if (total <= 0 || montoCuota <= 0 || frecuenciaDias < 1) return [];
+  // Antes de armar nada: con un monto absurdamente chico esto son cientos de
+  // miles de objetos, y el render de la previa se lleva puesta la pestaña.
+  if (cantidadPara(total, montoCuota) > TOPE_CUOTAS) return [];
 
   const enteras = Math.floor(centavos(total) / centavos(montoCuota));
   const resto = (centavos(total) - enteras * centavos(montoCuota)) / 100;

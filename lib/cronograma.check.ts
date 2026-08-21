@@ -22,6 +22,7 @@ import {
   resolverPar,
   seDanDeBaja,
   sobreviven,
+  TOPE_CUOTAS,
   type CuotaExistente,
 } from "./cronograma.ts";
 
@@ -105,6 +106,22 @@ for (const [total, cuota] of [
   );
 }
 console.log("✓ cronograma.ts — la regla del SP: enteras + resto, la última más chica");
+
+/* ── el techo de cuotas ── */
+
+// El caso que congeló la pestaña: escribiendo "700000" dígito a dígito, el
+// campo pasa por "7", y 3.000.000 en cuotas de 7 son 428.572 cuotas.
+assert.equal(cantidadPara(3000000, 7), 428572, "la cuenta sigue siendo la cuenta");
+assert.deepEqual(
+  cuotasSegunSP(3000000, 7, "2026-08-01", 7),
+  [],
+  "por encima del tope no se genera la lista: es lo que evitaba el freeze",
+);
+
+// Justo en el tope sí se genera: el corte no puede comerse casos reales.
+assert.equal(cuotasSegunSP(TOPE_CUOTAS * 1000, 1000, "2026-08-01", 1).length, TOPE_CUOTAS);
+assert.equal(cuotasSegunSP((TOPE_CUOTAS + 1) * 1000, 1000, "2026-08-01", 1).length, 0);
+console.log("✓ cronograma.ts — el tope corta los montos absurdos y deja pasar los reales");
 
 /* ── las fechas corren de a `frecuenciaDias` ── */
 
