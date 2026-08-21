@@ -315,8 +315,11 @@ function PlanForm({
     form.parEdicion,
     false,
   );
+  // El tope va también acá, no solo al dibujar: con un monto de dos dígitos
+  // esto arma cientos de miles de objetos y la pestaña se cuelga aunque la
+  // lista no llegue a pintarse nunca.
   const resumenEd =
-    esAlta || aRepartirEd <= 0 || cantidadEd <= 0 || diasEd < 1
+    esAlta || aRepartirEd <= 0 || cantidadEd <= 0 || cantidadEd > TOPE_CUOTAS || diasEd < 1
       ? null
       : calcularResumen(aRepartirEd, 0, cantidadEd, {
           periodo: "Manual",
@@ -342,8 +345,19 @@ function PlanForm({
   const totalCambio =
     !esAlta && Math.round(total * 100) !== Math.round((plan?.montoTotal ?? 0) * 100);
 
+  /** Y además que el cronograma calculado no sea exactamente el que ya está */
+  const distintoDelVigente =
+    nuevasEd.length !== corte.pendientes.length ||
+    nuevasEd.some(
+      (c, i) => c.fecha !== corte.pendientes[i]?.fecha || c.monto !== corte.pendientes[i]?.monto,
+    );
+
+  // Las dos condiciones juntas, y hacen falta las dos: la de arriba sola
+  // reemplazaba el cronograma cuando el admin tocaba un campo y lo dejaba
+  // como estaba; la de abajo sola volvía a marcar cambio en cualquier plan
+  // salido de un SP, que nunca coincide con el reparto parejo de la edición.
   const cronogramaCambio =
-    !esAlta && nuevasEd.length > 0 && (totalCambio || tocoCronograma);
+    !esAlta && nuevasEd.length > 0 && (totalCambio || tocoCronograma) && distintoDelVigente;
 
   // Al editar hay un caso que no se puede resolver solo: bajar el total por
   // debajo de lo ya cobrado más lo atrasado. No hay cronograma posible —
@@ -728,59 +742,58 @@ function PlanForm({
                 />
               </div>
 
-              {demasiadasEd ? (
-                <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                  <span>
-                    Con cuotas de {fmtMoney(cuotaEd)} salen{" "}
-                    <strong>{cantidadEd.toLocaleString("es-AR")}</strong> cuotas. Eso no es un
-                    cronograma, es un monto mal tipeado: subilo, o escribí directamente en cuántas
-                    cuotas lo querés.
-                  </span>
-                </div>
-              ) : totalImposible ? (
-                <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                  <span>
-                    Entre lo cobrado y lo atrasado ya hay {fmtMoney(corte.cobrado + corte.atrasado)},
-                    más que el total que estás poniendo. No hay cronograma posible: subí el total, o
-                    resolvé las cuotas atrasadas desde <strong>Refinanciar</strong>.
-                  </span>
-                </div>
+              {/* Los campos se dibujan SIEMPRE, pase lo que pase con los
+                  números. La primera versión los reemplazaba por el aviso, y
+                  entonces borrar un cero del monto escondía justo el campo que
+                  había que corregir: el aviso explicaba el problema y al mismo
+                  tiempo tapaba la forma de arreglarlo. Lo que cambia es qué se
+                  muestra ABAJO — el cronograma, o el aviso en su lugar. */}
+              <CamposCuota
+                par={form.parEdicion}
+                onCambio={(p) => setCron("parEdicion", p)}
+                montoCuota={cuotaEd}
+                cantidad={cantidadEd}
+                deshabilitado={guardando}
+                ayuda={
+                  aRepartirEd > 0
+                    ? `Quedan ${fmtMoney(aRepartirEd)} para repartir en cuotas nuevas. Escribí cualquiera de los dos: el otro se calcula solo.`
+                    : "Poné el total de arriba para poder repartir."
+                }
+              />
+
+              <CamposFrecuencia
+                frecuencia={form.frecuencia}
+                onFrecuencia={(v) => setCron("frecuencia", v)}
+                aMano={form.diasAMano}
+                onAMano={(v) => setCron("diasAMano", v)}
+                deshabilitado={guardando}
+              />
+
+              <div className="space-y-1.5">
+                <Label htmlFor="desde-edicion">Primera cuota nueva</Label>
+                <Input
+                  id="desde-edicion"
+                  type="date"
+                  value={form.desdeEdicion}
+                  onChange={(e) => setCron("desdeEdicion", e.target.value)}
+                  disabled={guardando}
+                />
+              </div>
+
+              {totalImposible ? (
+                <AvisoCuotas>
+                  El cliente ya pagó o debe {fmtMoney(corte.cobrado + corte.atrasado)} en cuotas que
+                  no se pueden tocar, y eso es más que el total que pusiste. Subí el total, o usá{" "}
+                  <strong>Refinanciar</strong> para rehacer el plan entero.
+                </AvisoCuotas>
+              ) : demasiadasEd ? (
+                <AvisoCuotas>
+                  Con cuotas de {fmtMoney(cuotaEd)} serían{" "}
+                  <strong>{cantidadEd.toLocaleString("es-AR")} cuotas</strong>. Probá con un monto
+                  más alto, o escribí cuántas cuotas querés.
+                </AvisoCuotas>
               ) : (
                 <>
-                  <CamposCuota
-                    par={form.parEdicion}
-                    onCambio={(p) => setCron("parEdicion", p)}
-                    montoCuota={cuotaEd}
-                    cantidad={cantidadEd}
-                    deshabilitado={guardando}
-                    ayuda={
-                      aRepartirEd > 0
-                        ? `Quedan ${fmtMoney(aRepartirEd)} para repartir en cuotas nuevas. Escribí cualquiera de los dos: el otro se calcula solo.`
-                        : "Poné el total de arriba para poder repartir."
-                    }
-                  />
-
-                  <CamposFrecuencia
-                    frecuencia={form.frecuencia}
-                    onFrecuencia={(v) => setCron("frecuencia", v)}
-                    aMano={form.diasAMano}
-                    onAMano={(v) => setCron("diasAMano", v)}
-                    deshabilitado={guardando}
-                  />
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="desde-edicion">Primera cuota nueva</Label>
-                    <Input
-                      id="desde-edicion"
-                      type="date"
-                      value={form.desdeEdicion}
-                      onChange={(e) => setCron("desdeEdicion", e.target.value)}
-                      disabled={guardando}
-                    />
-                  </div>
-
                   {nuevasEd.length > 0 && (
                     <PreviaCronograma
                       operacion="editar"
@@ -1037,6 +1050,20 @@ function FechasManuales({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * El aviso que ocupa el lugar del cronograma cuando no hay cronograma que
+ * mostrar. Va donde iría la lista, no donde van los campos: el admin tiene que
+ * poder corregir lo que el aviso le está señalando.
+ */
+function AvisoCuotas({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+      <span>{children}</span>
     </div>
   );
 }

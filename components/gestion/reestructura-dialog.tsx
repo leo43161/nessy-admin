@@ -473,11 +473,14 @@ export function ReestructuraDialog({
                 un cronograma reescrito. Va con las fechas a la vista porque un
                 total no deja ver que la primera cuota cae en una fecha que ya
                 pasó, ni que la última se va a tres años. */}
+            {/* El aviso va ACÁ, en el lugar del cronograma, y no arriba
+                reemplazando los campos: el admin tiene que poder corregir el
+                monto que el aviso le está señalando. */}
             {demasiadas ? (
-              <Aviso tono="alarma">
-                Con cuotas de {fmtMoney(cuota)} salen <strong>{cantidad.toLocaleString("es-AR")}</strong>{" "}
-                cuotas. Eso no es un cronograma, es un monto mal tipeado: subilo, o escribí
-                directamente en cuántas cuotas lo querés.
+              <Aviso tono="aviso">
+                Con cuotas de {fmtMoney(cuota)} serían{" "}
+                <strong>{cantidad.toLocaleString("es-AR")} cuotas</strong>. Probá con un monto más
+                alto, o escribí cuántas cuotas querés.
               </Aviso>
             ) : faltaAlgo ? (
               <div className="rounded-xl border-[1.5px] border-primary bg-secondary p-3">
