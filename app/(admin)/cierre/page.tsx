@@ -65,7 +65,7 @@ export default function CierrePage() {
         acciones={[
           {
             label: "Actualizar el cierre",
-            descripcion: "Vuelve a traer los cobros del período",
+            descripcion: "Por si entró algún cobro recién",
             icon: <RefreshCw />,
             onSelect: refrescar,
             disabled: cargando,

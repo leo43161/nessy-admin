@@ -100,7 +100,7 @@ export default function AnalisisPage() {
         acciones={[
           {
             label: "Actualizar el histórico",
-            descripcion: "Vuelve a calcular con todos los cobros",
+            descripcion: "Rehace los números con todo lo cobrado",
             icon: <RefreshCw />,
             onSelect: () => dispatch(fetchHistorico()),
             disabled: cargando,

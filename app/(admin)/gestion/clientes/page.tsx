@@ -165,7 +165,7 @@ export default function GestionClientesPage() {
         acciones={[
           {
             label: "Cargar un cliente nuevo",
-            descripcion: "Abre el formulario de alta",
+            descripcion: "Para alguien que todavía no está en la cartera",
             icon: <UserPlus />,
             onSelect: abrirAlta,
           },
@@ -178,7 +178,7 @@ export default function GestionClientesPage() {
           },
           {
             label: "Actualizar la lista",
-            descripcion: "Vuelve a traer los clientes del servidor",
+            descripcion: "Por si alguien cargó o cambió algo recién",
             icon: <RefreshCw />,
             onSelect: () => dispatch(fetchClientes({ cobradorId: null, localidadId: null })),
             disabled: cargando,
@@ -202,8 +202,8 @@ export default function GestionClientesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Dar de baja a {aEliminar?.nombreCompleto}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Es una baja lógica: el cliente deja de aparecer, pero su historial de planes y pagos
-              queda guardado.
+              Deja de aparecer en la lista. No se borra nada: sus financiaciones y todo lo que
+              pagó quedan guardados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

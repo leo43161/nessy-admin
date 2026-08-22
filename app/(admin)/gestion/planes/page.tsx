@@ -274,7 +274,7 @@ export default function GestionPlanesPage() {
           },
           {
             label: "Actualizar la lista",
-            descripcion: "Vuelve a traer los planes del servidor",
+            descripcion: "Por si alguien cargó o cambió algo recién",
             icon: <RefreshCw />,
             onSelect: () => dispatch(fetchPlanes()),
             disabled: cargando,
@@ -311,8 +311,8 @@ export default function GestionPlanesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Dar de baja esta financiación?</AlertDialogTitle>
             <AlertDialogDescription>
-              {aEliminar?.nombre} de {aEliminar?.clienteNombre}. Se dan de baja también sus cuotas
-              pendientes.
+              {aEliminar?.nombre} de {aEliminar?.clienteNombre}. Deja de aparecer, y con ella sus
+              cuotas. Los cobros que ya se hicieron quedan guardados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

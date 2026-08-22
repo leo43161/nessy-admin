@@ -241,7 +241,7 @@ export default function BalancePage() {
           },
           {
             label: "Actualizar el balance",
-            descripcion: "Vuelve a traer las cajas y el libro",
+            descripcion: "Por si se cargó algún movimiento recién",
             icon: <RefreshCw />,
             onSelect: () => void cargar(),
             disabled: cargando,

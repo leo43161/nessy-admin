@@ -48,12 +48,12 @@ export const restoreSession = createAsyncThunk<LoginResponse, void, { rejectValu
     const session = getStoredSession();
     if (!token || !session || isTokenExpired(token)) {
       clearSession();
-      return rejectWithValue("Sesión expirada.");
+      return rejectWithValue("Pasó mucho rato sin usar el panel. Entrá de nuevo.");
     }
     const valido = await authService.validateToken();
     if (!valido) {
       clearSession();
-      return rejectWithValue("Sesión inválida.");
+      return rejectWithValue("Hay que volver a entrar.");
     }
     return { token, cuenta: session.cuenta, cobrador: session.cobrador };
   },
