@@ -9,13 +9,23 @@
  * abre un chat que no existe. El `15` es lo contrario — es para llamar desde
  * dentro del país y en formato internacional no va nunca.
  *
- * Por eso el alta no deja escribir el número entero: el `+54 9` es fijo, la
- * característica sale de un select y el cobrador solo tipea el abonado.
+ * El campo acepta el número escrito como cada uno lo tenga anotado y de
+ * armarlo se encarga `interpretarTipeado`. Lo que se guarda es siempre la
+ * misma forma: `549` + característica + abonado.
  */
 
 /** Todo número argentino tiene 10 dígitos entre característica y abonado */
 const LARGO_NACIONAL = 10;
 
+/**
+ * Con qué característica arranca un teléfono nuevo: San Miguel de Tucumán,
+ * que es de donde es casi toda la cartera.
+ *
+ * Antes se deducía de la localidad del cliente, y para uno de Aguilares el
+ * campo arrancaba en 3863. Adivinar acá no compensa: el que carga espera
+ * siempre lo mismo, y si el número es de otra zona la característica se
+ * acomoda sola apenas se escribe completo.
+ */
 export const AREA_POR_DEFECTO = "381";
 
 export interface Area {
@@ -52,38 +62,6 @@ export const AREAS_PAIS: Area[] = [
 
 export const AREAS: Area[] = [...AREAS_TUCUMAN, ...AREAS_PAIS];
 
-/**
- * Característica que le corresponde a cada localidad de
- * `Localidades_y_regiones`. La clave es el nombre exacto de la base.
- */
-export const AREA_POR_LOCALIDAD: Record<string, string> = {
-  "San Miguel de Tucumán": "381",
-  "Yerba Buena": "381",
-  "Tafí Viejo": "381",
-  "Las Talitas": "381",
-  "Banda del Río Salí": "381",
-  Alderetes: "381",
-  Lastenia: "381",
-  "El Manantial": "381",
-  "San Pablo": "381",
-  "Los Pocitos": "381",
-  Lules: "381",
-  Famaillá: "381",
-  Leales: "381",
-  Aguilares: "3863",
-  "Juan Bautista Alberdi": "3863",
-  "La Cocha": "3863",
-  Graneros: "3863",
-  Concepción: "3865",
-  Monteros: "3865",
-  Simoca: "3865",
-  "Bella Vista": "3865",
-  Trancas: "3862",
-  Burruyacú: "3862",
-  "Tafí del Valle": "3867",
-  "Amaicha del Valle": "3867",
-};
-
 /** Cuántos dígitos tiene el abonado para esa característica */
 export function largoAbonado(area: string): number {
   return LARGO_NACIONAL - area.length;
@@ -103,6 +81,73 @@ export function formatearParaLeer(guardado: string): string {
   const { area, abonado } = desdeNumeroGuardado(guardado);
   if (!area) return guardado;
   return `+54 9 ${area} ${abonado}`;
+}
+
+/** Cuántos dígitos como máximo puede tener lo tipeado: la parte nacional */
+export const LARGO_MAXIMO = LARGO_NACIONAL;
+
+/**
+ * Lo que el admin escribió, interpretado.
+ *
+ * El campo acepta el número **como lo tenga anotado**: con o sin el 0 de larga
+ * distancia, con o sin el 15, con o sin +54 9, con espacios o guiones, o solo
+ * el abonado. Antes solo aceptaba el abonado y había que sacar la
+ * característica de un select aparte, que es exactamente lo que nadie
+ * entendía: quien tiene "3815010101" anotado lo escribe entero.
+ *
+ * **La característica solo se reemplaza cuando lo tipeado es un número
+ * nacional completo** —10 dígitos que empiezan con una característica
+ * conocida— o cuando trae un prefijo que no deja lugar a dudas (54, o el 0 de
+ * larga distancia). Si no, manda `areaActual`.
+ *
+ * Ese cuidado no es adorno: en 381 hay abonados que empiezan con 11, y sin la
+ * condición del largo, tipear "1123456" cambiaba la característica a Buenos
+ * Aires en mitad de la palabra.
+ */
+export function interpretarTipeado(
+  texto: string,
+  areaActual: string,
+): { area: string; abonado: string } {
+  const crudo = texto.replace(/\D/g, "");
+
+  // ¿Trae un prefijo que dice "esto es el número entero"? El 0 de larga
+  // distancia y el 54 internacional solo aparecen delante de la característica.
+  let n = crudo;
+  let explicito = false;
+
+  if (n.startsWith("54")) {
+    n = n.slice(2);
+    if (n.startsWith("9")) n = n.slice(1);
+    explicito = true;
+  } else if (n.startsWith("0")) {
+    n = n.replace(/^0+/, "");
+    explicito = true;
+  }
+
+  const area = areaQueEmpieza(n);
+
+  if (area) {
+    // El 15 va entre la característica y el abonado, y en formato
+    // internacional no va nunca.
+    const resto = n.slice(area.length).replace(/^15/, "");
+
+    if (explicito || area.length + resto.length >= LARGO_NACIONAL) {
+      return { area, abonado: resto.slice(0, largoAbonado(area)) };
+    }
+  }
+
+  // Todavía no alcanza para decir que cambió de característica: es el abonado.
+  return { area: areaActual, abonado: n.slice(0, LARGO_NACIONAL) };
+}
+
+/** La característica más larga que prefija a ese número, o null */
+function areaQueEmpieza(n: string): string | null {
+  // La más larga primero: 3863 tiene que ganarle a 38 si alguna vez se agrega.
+  return (
+    [...AREAS]
+      .sort((a, b) => b.codigo.length - a.codigo.length)
+      .find((a) => n.startsWith(a.codigo))?.codigo ?? null
+  );
 }
 
 /**

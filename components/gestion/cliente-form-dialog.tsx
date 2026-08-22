@@ -252,7 +252,6 @@ function ClienteForm({
         <TelefonosInput
           valores={form.telefonos}
           onChange={(t) => set("telefonos", t)}
-          localidadNombre={localidades.find((l) => l.id === form.idLocalidad)?.nombre}
         />
 
         <DialogFooter>
